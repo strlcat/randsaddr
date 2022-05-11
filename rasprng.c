@@ -8,7 +8,7 @@
 #include <errno.h>
 #include "randsaddr.h"
 
-static int prng_init(void)
+static int do_prng_init(void)
 {
 	static unsigned initdone;
 	uint8_t key[TFNG_PRNG_KEY_SIZE];
@@ -26,15 +26,22 @@ static int prng_init(void)
 	return 1;
 }
 
-uint8_t prng_getrandc(void)
+static void prng_init(void)
 {
-	uint8_t res;
-
-	if (!prng_init()) {
+	if (!do_prng_init()) {
 		fprintf(stderr, "prng init failed: %s\n", strerror(errno));
 		exit(errno);
 	}
+}
 
-	res = (uint8_t)tfng_prng_range(0, 0xff);
-	return res;
+uint8_t prng_getrandc(void)
+{
+	prng_init();
+	return (uint8_t)tfng_prng_range(0, 0xff);
+}
+
+size_t prng_index(size_t from, size_t to)
+{
+	prng_init();
+	return (size_t)tfng_prng_range((TFNG_UNIT_TYPE)from, (TFNG_UNIT_TYPE)to);
 }

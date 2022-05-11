@@ -5,13 +5,21 @@
 #include "tfdef.h"
 #include "tfe.h"
 #include "tfprng.h"
+#include "xmalloc.h"
 
 #define NOSIZE ((size_t)-1)
+
+#define STAT_ARRAY_SZ(x) (sizeof(x)/sizeof(*x))
+#define CSTR_SZ(x) (sizeof(x)-1)
 
 extern int mkrandaddr6(void *, const void *, size_t);
 extern void mkeui64addr(void *, const void *);
 extern int mkrandaddr4(void *, const void *, size_t);
 
-uint8_t prng_getrandc(void);
+extern uint8_t prng_getrandc(void);
+
+extern int addr_type(const char *);
+
+extern size_t prng_index(size_t from, size_t to);
 
 #endif
