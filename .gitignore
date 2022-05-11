@@ -1,0 +1,9 @@
+_*
+*.swp
+*.o
+*.out
+*.key
+*.diff
+*.patch
+tags
+randsaddr.so
