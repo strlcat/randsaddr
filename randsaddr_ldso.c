@@ -31,7 +31,6 @@ struct s_addrcfg {
 	short wl;
 };
 
-static char *randsaddr_envcfg;
 static int randsaddr_disabled;
 
 static struct s_addrcfg *addrs6;
@@ -64,7 +63,7 @@ void xmalloc_error(xmalloc_oom_caller where)
 static void randsaddr_init(void)
 {
 	static int initdone;
-	char *s, *d, *t;
+	char *scfg, *s, *d, *t;
 	size_t sz, x, y;
 	int type;
 	struct s_addrcfg *sap;
@@ -81,9 +80,13 @@ static void randsaddr_init(void)
 _done:		initdone = 1;
 		return;
 	}
-	else randsaddr_envcfg = xstrdup(s);
+	else {
+		scfg = xstrdup(s);
+		memset(s, 0, strlen(s));
+		unsetenv("RANDSADDR");
+	}
 
-	s = d = randsaddr_envcfg; t = NULL;
+	s = d = scfg; t = NULL;
 	while ((s = strtok_r(d, ",", &t))) {
 		if (d) d = NULL;
 
@@ -105,6 +108,8 @@ _done:		initdone = 1;
 			naddrs4 = DYN_ARRAY_SZ(addrs4);
 		}
 	}
+
+	pfree(scfg);
 
 	sap = addrs6;
 	sz = naddrs6;
