@@ -18,6 +18,43 @@ You may want to install it on system into `/usr/lib` directory. Just copy it the
 cp randsaddr.so /usr/lib
 ```
 
+### Usage
+
+The `randsaddr.so` shared object must be loaded into your application address space:
+
+```
+LD_PRELOAD=/usr/lib/randsaddr.so your-app args etc.
+```
+
+If no `RANDSADDR` environment variable was passed, it will do nothing but act as a shim object.
+
+To make it work as intended, `RANDSADDR` environment variable shall be set.
+
+Syntax for `RANDSADDR` environment variable is:
+
+```
+RANDSADDR=[[-][socket,connect,send,sendto,sendmsg,eui64]][-E]SUBNET/PREFIX,[SUBNET/PREFIX]
+```
+, where `SUBNET/PREFIX` takes a canonical IP address range syntax, like
+
+```
+192.0.2.0/24
+```
+for IPv4, or
+```
+2001:db8::/32
+```
+for IPv6 (preferred).
+
+List of syscalls which `randsaddr.so` will control is given as comma separated list: `socket,connect,send,sendto,sendmsg`.
+If a single entry, e.g. `send` is prefixed with dash, like `-send`, it's usage will be disabled and forced to pass through.
+
+Note that `socket` used with server daemons may produce their misbehavior.
+
+Additionally, `eui64` will enable, and `-eui64` will disable generation of EUI64 style IPv6 addresses.
+
+Each `SUBNET/PREFIX` can also be configured with `E` (eui64 style for this subnet) and `-` (remove subnet from address space).
+
 ### Example
 
 Suppose you have four `/60`'s available to play with,
@@ -69,7 +106,7 @@ Here, `LD_PRELOAD` instructs dynamic linker to override the `connect` function w
 Next, `RANDSADDR` is configuration environment variables which simply specifies subnet ranges which it can
 randomize (assuming kernel already was prepared to do so with commands above).
 
-Now run the application, and enjoy seeing it doing TCP/UDP traffic from randomized IPv6 addressess of your prefix(es).
+Now run the application, and enjoy seeing it doing TCP/UDP traffic from randomized IPv6 addresses of your prefix(es).
 
 ### Making it permanent
 
@@ -81,7 +118,7 @@ User commands to pre-load `randsaddr.so` must be performed from a shell, or from
 #!/bin/sh
 # Propagade this into children
 export LD_PRELOAD=/usr/lib/randsaddr.so
-export RANDSADDR="2001:db8:7:4aa0::/60,2001:db8:7:7870::/60,2001:db8:a5:1200::/60,2001:db8:8:9e30::/60"
+export RANDSADDR="sendto,2001:db8:7:4aa0::/60,2001:db8:7:7870::/60,2001:db8:a5:1200::/60,2001:db8:8:9e30::/60"
 exec your-app args etc. "${@}"
 ```
 
@@ -92,7 +129,7 @@ Unix offers so many opportunities, you've got the idea I hope.
 
 There are several prefixes for each subnet range you can use to alter randsaddr behavior:
 
-`E`, like `E2001:db8:7:4aa0::/60`, will mark this subnet range as `EUI64` style. Addressess generated for this
+`E`, like `E2001:db8:7:4aa0::/60`, will mark this subnet range as `EUI64` style. Addresses generated for this
 subnet will take form like `2001:db8:7:4aa0:8a8:7cff:fee3:1a32`. The `ff:fe` in middle of `hostid` is constant
 which, according to IPv6 standard, specifies that `hostid` was simply copied from NIC's MAC address.
 So, `:8a8:7cff:fee3:1a32` part literally says "My MAC address is `08:a8:7c:e3:1a:32`".
@@ -135,10 +172,6 @@ Although, I think your system runs on glibc, which is harder to deal with. And t
 
 I guess most programs which do `connect(2)` won't poke at libc internals anyway. Portable apps shall not call
 `syscall(2)` even.
-
-### TODO
-
-Support other BSD networking syscalls which might use source address, like `sendto(2)`.
 
 ### Copyright
 

@@ -11,6 +11,7 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <sys/syscall.h>
+#include <sys/socket.h>
 #include <arpa/inet.h>
 #include "randsaddr.h"
 
@@ -31,7 +32,14 @@ struct s_addrcfg {
 	short wl;
 };
 
-static int randsaddr_disabled;
+static short randsaddr_disabled;
+
+static short randsaddr_do_socket;
+static short randsaddr_do_connect = 1;
+static short randsaddr_do_send;
+static short randsaddr_do_sendto;
+static short randsaddr_do_sendmsg;
+static short randsaddr_do_eui64;
 
 static struct s_addrcfg *addrs6;
 static size_t naddrs6;
@@ -71,9 +79,6 @@ void __attribute__((constructor)) randsaddr_init(void)
 	if (initdone) return;
 	if (randsaddr_disabled) return;
 
-	/*
-	 * RANDSADDR=[-][E]2001:db8:76ba:8aef::/64,[-]192.0.2.1/24,...
-	 */
 	s = getenv("RANDSADDR");
 	if (!s) {
 		randsaddr_disabled = 1;
@@ -90,12 +95,54 @@ _done:		initdone = 1;
 	while ((s = strtok_r(d, ",", &t))) {
 		if (d) d = NULL;
 
+		if (!strcasecmp(s, "connect")) {
+			randsaddr_do_connect = 1;
+			continue;
+		}
+		if (!strcasecmp(s, "-connect")) {
+			randsaddr_do_connect = 0;
+			continue;
+		}
+		if (!strcasecmp(s, "send")) {
+			randsaddr_do_send = 1;
+			continue;
+		}
+		if (!strcasecmp(s, "-send")) {
+			randsaddr_do_send = 0;
+			continue;
+		}
+		if (!strcasecmp(s, "sendto")) {
+			randsaddr_do_sendto = 1;
+			continue;
+		}
+		if (!strcasecmp(s, "-sendto")) {
+			randsaddr_do_sendto = 0;
+			continue;
+		}
+		if (!strcasecmp(s, "sendmsg")) {
+			randsaddr_do_sendmsg = 1;
+			continue;
+		}
+		if (!strcasecmp(s, "-sendmsg")) {
+			randsaddr_do_sendmsg = 0;
+			continue;
+		}
+		if (!strcasecmp(s, "eui64")) {
+			randsaddr_do_eui64 = 1;
+			continue;
+		}
+		if (!strcasecmp(s, "-eui64")) {
+			randsaddr_do_eui64 = 0;
+			continue;
+		}
+
 		type = addr_type(s);
 		if (type == AF_INET6) {
 			sz = DYN_ARRAY_SZ(addrs6);
 			addrs6 = xrealloc(addrs6, (sz+1)*sizeof(struct s_addrcfg));
 			addrs6[sz].af = type;
 			addrs6[sz].str = xstrdup(s); /* [-][E]2001:db8:76ba:8aef::/64 */
+			addrs6[sz].eui64 = randsaddr_do_eui64;
 			addrs6[sz].pfx = NOSIZE; /* filled later */
 			naddrs6 = DYN_ARRAY_SZ(addrs6);
 		}
@@ -154,13 +201,13 @@ _for4:		sap = addrs4;
 	goto _done;
 }
 
-int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+static void common_bind_random(int sockfd)
 {
 	union s_addr sa;
 	struct s_addrcfg *sap;
 	size_t x;
 
-	if (randsaddr_disabled) goto _call;
+	if (randsaddr_disabled) return;
 
 	if (!addrs6) goto _try4;
 _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
@@ -176,26 +223,60 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 			}
 		}
 		sa.v6a.sin6_family = AF_INET6;
+		/* This call shall ignore any errors since it's just hint anyway. */
 		if (bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == -1) goto _try4;
-		goto _call;
+		return;
 	}
 
-_try4:	if (!addrs4) goto _call;
+_try4:	if (!addrs4) return;
 _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	sap = &addrs4[x];
 	if (sap->wl == 1) goto _na4; /* whitelisted: get another */
 	if (sap->pfx != NOSIZE) {
 		memset(&sa, 0, sizeof(sa));
-		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) goto _call;
+		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) return;
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (addrs4[x].wl == 1 && compare_prefix(AF_INET, &sa.v4a.sin_addr, addrs4[x].sa.v4b, addrs4[x].pfx)) {
 				goto _na4;
 			}
 		}
 		sa.v4a.sin_family = AF_INET;
-		if (bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == -1) goto _call;
-		goto _call;
+		/* This call shall ignore any errors since it's just hint anyway. */
+		if (bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == -1) return;
+		return;
 	}
+}
 
-_call:	return syscall(SYS_connect, sockfd, addr, addrlen);
+int socket(int domain, int type, int protocol)
+{
+	int res;
+
+	res = syscall(SYS_socket, domain, type, protocol);
+	if (res == -1) return res;
+	if (randsaddr_do_socket) common_bind_random(res);
+	return res;
+}
+
+int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
+{
+	if (randsaddr_do_connect) common_bind_random(sockfd);
+	return syscall(SYS_connect, sockfd, addr, addrlen);
+}
+
+ssize_t send(int sockfd, const void *buf, size_t len, int flags)
+{
+	if (randsaddr_do_send) common_bind_random(sockfd);
+	return syscall(SYS_sendto, sockfd, buf, len, flags, NULL, 0);
+}
+
+ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
+{
+	if (randsaddr_do_sendto) common_bind_random(sockfd);
+	return syscall(SYS_sendto, sockfd, buf, len, flags, dest_addr, addrlen);
+}
+
+ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
+{
+	if (randsaddr_do_sendmsg) common_bind_random(sockfd);
+	return syscall(SYS_sendmsg, msg, flags);
 }
