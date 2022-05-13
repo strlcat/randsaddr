@@ -34,10 +34,21 @@ static void prng_init(void)
 	}
 }
 
-uint8_t prng_getrandc(void)
+/*
+ * @want_full: "I want byte full of bits, without zero nibbles!"
+ */
+uint8_t prng_getrandc(ras_yesno want_full)
 {
+	uint8_t res;
+
 	prng_init();
-	return (uint8_t)tfng_prng_range(0, 0xff);
+_nx:	res = (uint8_t)tfng_prng_range(0, 0xff);
+	if (want_full == NO) return res;
+	else {
+		if ((res >> 4 & 0xf) && (res & 0xf)) return res;
+		else goto _nx;
+	}
+	return res;
 }
 
 size_t prng_index(size_t from, size_t to)

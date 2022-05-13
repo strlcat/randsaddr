@@ -19,11 +19,11 @@ typedef short ras_atype;
 #define STAT_ARRAY_SZ(x) (sizeof(x)/sizeof(*x))
 #define CSTR_SZ(x) (sizeof(x)-1)
 
-extern ras_yesno mkrandaddr6(void *, const void *, size_t);
+extern ras_yesno mkrandaddr6(void *, const void *, size_t, ras_yesno);
 extern void mkeui64addr(void *, const void *);
-extern ras_yesno mkrandaddr4(void *, const void *, size_t);
+extern ras_yesno mkrandaddr4(void *, const void *, size_t, ras_yesno);
 
-extern uint8_t prng_getrandc(void);
+extern uint8_t prng_getrandc(ras_yesno);
 
 extern ras_atype addr_type(const char *);
 extern ras_yesno compare_prefix(ras_atype, const void *, const void *, size_t);

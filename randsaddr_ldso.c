@@ -32,6 +32,7 @@ struct s_addrcfg {
 	ras_yesno eui64;
 	ras_yesno whitelisted;
 	ras_yesno dont_bind;
+	ras_yesno fullbytes;
 };
 
 struct s_envcfg {
@@ -46,9 +47,10 @@ struct s_envcfg {
 	ras_yesno do_sendmsg;
 	ras_yesno do_reuseaddr;
 	ras_yesno do_eui64;
+	ras_yesno do_fullbytes;
 };
 
-static struct s_envcfg randsaddr = { .do_connect = YES, };
+static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, };
 static const struct s_envcfg *crandsaddr = &randsaddr;
 
 static struct s_addrcfg *addrs6;
@@ -172,6 +174,14 @@ _done:		randsaddr.initdone = YES;
 			randsaddr.do_reuseaddr = NO;
 			continue;
 		}
+		else if (!strcasecmp(s, "fullbytes")) {
+			randsaddr.do_fullbytes = YES;
+			continue;
+		}
+		else if (!strcasecmp(s, "-fullbytes")) {
+			randsaddr.do_fullbytes = NO;
+			continue;
+		}
 
 		type = addr_type(s);
 		if (type == RAT_IPV6) {
@@ -180,6 +190,7 @@ _done:		randsaddr.initdone = YES;
 			addrs6[sz].atype = type;
 			addrs6[sz].str = xstrdup(s); /* [-/W][B][E]2001:db8:76ba:8aef::/64 */
 			addrs6[sz].eui64 = crandsaddr->do_eui64;
+			addrs6[sz].fullbytes = crandsaddr->do_fullbytes;
 			addrs6[sz].pfx = NOSIZE; /* filled later */
 			naddrs6 = DYN_ARRAY_SZ(addrs6);
 		}
@@ -188,6 +199,7 @@ _done:		randsaddr.initdone = YES;
 			addrs4 = xrealloc(addrs4, (sz+1)*sizeof(struct s_addrcfg));
 			addrs4[sz].atype = type;
 			addrs4[sz].str = xstrdup(s); /* [-/W][B]192.0.2.1/24 */
+			addrs4[sz].fullbytes = crandsaddr->do_fullbytes;
 			addrs4[sz].pfx = NOSIZE; /* filled later */
 			naddrs4 = DYN_ARRAY_SZ(addrs4);
 		}
@@ -231,7 +243,7 @@ _for4:		sap = addrs4;
 			continue;
 		}
 		s = sap[x].str;
-		for (y = 0; y < 2; y++) {
+		for (y = 0; y < 4; y++) {
 			switch (*s) {
 				case '-': /* whitelisted - don't bind to these */
 				case 'W':
@@ -246,6 +258,10 @@ _for4:		sap = addrs4;
 				case 'B':
 					sap[x].whitelisted = YES;
 					sap[x].dont_bind = YES;
+					s++;
+				break;
+				case 'F':
+					sap[x].fullbytes = YES;
 					s++;
 				break;
 			}
@@ -298,7 +314,7 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
 	if (sap->pfx != NOSIZE) { /* fail of you to provide valid cfg */
 		memset(&sa, 0, sizeof(sa));
-		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx)) {
+		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx, sap->fullbytes)) {
 			goto _try4;
 		}
 		if (sap->eui64) mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
@@ -327,7 +343,7 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
 	if (sap->pfx != NOSIZE) {
 		memset(&sa, 0, sizeof(sa));
-		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) {
+		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx, sap->fullbytes)) {
 			return;
 		}
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
