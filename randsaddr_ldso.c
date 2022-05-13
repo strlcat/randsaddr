@@ -177,7 +177,7 @@ _done:		initdone = YES;
 			sz = DYN_ARRAY_SZ(addrs4);
 			addrs4 = xrealloc(addrs4, (sz+1)*sizeof(struct s_addrcfg));
 			addrs4[sz].atype = type;
-			addrs4[sz].str = xstrdup(s); /* [-]192.0.2.1/24 */
+			addrs4[sz].str = xstrdup(s); /* [-/W][B]192.0.2.1/24 */
 			addrs4[sz].pfx = NOSIZE; /* filled later */
 			naddrs4 = DYN_ARRAY_SZ(addrs4);
 		}
@@ -194,38 +194,21 @@ _for4:		sap = addrs4;
 	}
 
 	for (x = 0; x < sz; x++) {
-		scfg = sap[x].str;
-
-		s = scfg;
-		for (y = 0; y < 3; y++) {
-			switch (*s) {
-				case '-': /* whitelisted - don't bind to these */
-				case 'W':
-					sap[x].whitelisted = YES;
-					s++;
-				break;
-				case 'E': /* build EUI64 style saddr */
-					if (sap[x].pfx > 88) sap[x].pfx = NOSIZE;
-					else sap[x].eui64 = YES;
-					s++;
-				break;
-				case 'B':
-					sap[x].whitelisted = YES;
-					sap[x].dont_bind = YES;
-					s++;
-				break;
-			}
+		if (sap[x].atype != RAT_IPV4 && sap[x].atype != RAT_IPV6) {
+			sap[x].pfx = NOSIZE;
+			continue;
 		}
-		scfg = s;
-
-		if (*s == '[') {
-			*s = 0;
-			s++;
-			scfg++;
-		}
+		s = sap[x].str;
 		d = strchr(s, '/');
-		if (!d) continue;
+		if (!d) {
+			sap[x].pfx = NOSIZE;
+			continue;
+		}
 		*d = 0; d++;
+		if (strchr(d, '/')) {
+			sap[x].pfx = NOSIZE;
+			continue;
+		}
 		sap[x].pfx = (size_t)atoi(d);
 		if (sap[x].pfx > 128) {
 			sap[x].pfx = NOSIZE;
@@ -235,11 +218,33 @@ _for4:		sap = addrs4;
 			sap[x].pfx = NOSIZE;
 			continue;
 		}
-		d -= 2;
-		if (d < scfg) d = scfg;
-		if (*d == ']') *d = 0;
+		s = sap[x].str;
+		for (y = 0; y < 2; y++) {
+			switch (*s) {
+				case '-': /* whitelisted - don't bind to these */
+				case 'W':
+					sap[x].whitelisted = YES;
+					s++;
+				break;
+				case 'E': /* build EUI64 style saddr */
+					if (sap[x].pfx > 88) sap[x].pfx = NOSIZE;
+					else sap[x].eui64 = 1;
+					s++;
+				break;
+				case 'B':
+					sap[x].whitelisted = YES;
+					sap[x].dont_bind = YES;
+					s++;
+				break;
+			}
+		}
 
-		if (inet_pton(sap[x].atype == RAT_IPV4 ? AF_INET : AF_INET6, s, sap[x].sa.ipa) < 1) sap[x].pfx = NOSIZE;
+		strxstr(s, "[", "");
+		strxstr(s, "]", "");
+		if (inet_pton(sap[x].atype == RAT_IPV4 ? AF_INET : AF_INET6, s, sap[x].sa.ipa) < 1) {
+			sap[x].pfx = NOSIZE;
+			continue;
+		}
 
 		d = sap[x].str;
 		sap[x].str = xstrdup(s);

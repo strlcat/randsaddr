@@ -30,4 +30,6 @@ extern ras_yesno compare_prefix(ras_atype, const void *, const void *, size_t);
 
 extern size_t prng_index(size_t, size_t);
 
+extern size_t strxstr(char *, const char *, const char *);
+
 #endif
