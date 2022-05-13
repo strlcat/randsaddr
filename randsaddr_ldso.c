@@ -13,6 +13,7 @@
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 #include "randsaddr.h"
 
 union s_addr {
@@ -33,21 +34,31 @@ struct s_addrcfg {
 	ras_yesno dont_bind;
 };
 
-static ras_yesno randsaddr_disabled;
+struct s_envcfg {
+	ras_yesno initdone;
+	ras_yesno disabled;
 
-static ras_yesno randsaddr_do_socket; /* dangerous for servers! */
-static ras_yesno randsaddr_do_bind; /* dangerous for servers! */
-static ras_yesno randsaddr_do_connect = YES;
-static ras_yesno randsaddr_do_send;
-static ras_yesno randsaddr_do_sendto;
-static ras_yesno randsaddr_do_sendmsg;
-static ras_yesno randsaddr_do_reuseaddr;
-static ras_yesno randsaddr_do_eui64;
+	ras_yesno do_socket; /* dangerous for servers! */
+	ras_yesno do_bind; /* dangerous for servers! */
+	ras_yesno do_connect;
+	ras_yesno do_send;
+	ras_yesno do_sendto;
+	ras_yesno do_sendmsg;
+	ras_yesno do_reuseaddr;
+	ras_yesno do_eui64;
+};
+
+static struct s_envcfg randsaddr = { .do_connect = YES, };
+static const struct s_envcfg *crandsaddr = &randsaddr;
 
 static struct s_addrcfg *addrs6;
 static size_t naddrs6;
 static struct s_addrcfg *addrs4;
 static size_t naddrs4;
+
+/* We shall not write to these outside of init function. */
+static const struct s_addrcfg *caddrs6;
+static const struct s_addrcfg *caddrs4;
 
 int xmalloc_oom(int fail, xmalloc_oom_caller where)
 {
@@ -73,19 +84,18 @@ void xmalloc_error(xmalloc_oom_caller where)
 
 void __attribute__((constructor)) randsaddr_init(void)
 {
-	static int initdone;
 	char *scfg, *s, *d, *t;
 	size_t sz, x, y;
 	ras_atype type;
 	struct s_addrcfg *sap;
 
-	if (initdone) return;
-	if (randsaddr_disabled) return;
+	if (randsaddr.initdone) return;
+	if (randsaddr.disabled) return;
 
 	s = getenv("RANDSADDR");
 	if (!s) {
-		randsaddr_disabled = YES;
-_done:		initdone = YES;
+		randsaddr.disabled = YES;
+_done:		randsaddr.initdone = YES;
 		return;
 	}
 	else {
@@ -99,67 +109,67 @@ _done:		initdone = YES;
 		if (d) d = NULL;
 
 		if (!strcasecmp(s, "socket")) {
-			randsaddr_do_socket = YES;
+			randsaddr.do_socket = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-socket")) {
-			randsaddr_do_socket = NO;
+			randsaddr.do_socket = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "bind")) {
-			randsaddr_do_bind = YES;
+			randsaddr.do_bind = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-bind")) {
-			randsaddr_do_bind = NO;
+			randsaddr.do_bind = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "connect")) {
-			randsaddr_do_connect = YES;
+			randsaddr.do_connect = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-connect")) {
-			randsaddr_do_connect = NO;
+			randsaddr.do_connect = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "send")) {
-			randsaddr_do_send = YES;
+			randsaddr.do_send = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-send")) {
-			randsaddr_do_send = NO;
+			randsaddr.do_send = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "sendto")) {
-			randsaddr_do_sendto = YES;
+			randsaddr.do_sendto = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-sendto")) {
-			randsaddr_do_sendto = NO;
+			randsaddr.do_sendto = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "sendmsg")) {
-			randsaddr_do_sendmsg = YES;
+			randsaddr.do_sendmsg = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-sendmsg")) {
-			randsaddr_do_sendmsg = NO;
+			randsaddr.do_sendmsg = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "eui64")) {
-			randsaddr_do_eui64 = YES;
+			randsaddr.do_eui64 = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-eui64")) {
-			randsaddr_do_eui64 = NO;
+			randsaddr.do_eui64 = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "reuseaddr")) {
-			randsaddr_do_reuseaddr = YES;
+			randsaddr.do_reuseaddr = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "-reuseaddr")) {
-			randsaddr_do_reuseaddr = NO;
+			randsaddr.do_reuseaddr = NO;
 			continue;
 		}
 
@@ -169,7 +179,7 @@ _done:		initdone = YES;
 			addrs6 = xrealloc(addrs6, (sz+1)*sizeof(struct s_addrcfg));
 			addrs6[sz].atype = type;
 			addrs6[sz].str = xstrdup(s); /* [-/W][B][E]2001:db8:76ba:8aef::/64 */
-			addrs6[sz].eui64 = randsaddr_do_eui64;
+			addrs6[sz].eui64 = crandsaddr->do_eui64;
 			addrs6[sz].pfx = NOSIZE; /* filled later */
 			naddrs6 = DYN_ARRAY_SZ(addrs6);
 		}
@@ -184,6 +194,8 @@ _done:		initdone = YES;
 	}
 
 	pfree(scfg);
+	caddrs6 = addrs6;
+	caddrs4 = addrs4;
 
 	sap = addrs6;
 	sz = naddrs6;
@@ -257,27 +269,29 @@ _for4:		sap = addrs4;
 
 static void common_bind_random(int sockfd)
 {
-	struct s_addrcfg *sap;
+	const struct s_addrcfg *sap;
 	size_t x;
 	union s_addr sa;
 
-	if (randsaddr_disabled) return;
-
-	if (!addrs6) goto _try4;
+	if (!caddrs6) goto _try4;
 _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
-	sap = &addrs6[x];
-	if (sap->whitelisted == YES) goto _na6; /* whitelisted: get another */
+	sap = &caddrs6[x];
+	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
 	if (sap->pfx != NOSIZE) { /* fail of you to provide valid cfg */
 		memset(&sa, 0, sizeof(sa));
-		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx)) goto _try4;
+		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx)) {
+			goto _try4;
+		}
 		if (sap->eui64) mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
-			if (addrs6[x].whitelisted == YES && compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, addrs6[x].sa.v6b, addrs6[x].pfx)) {
+			if (caddrs6[x].whitelisted == YES
+			&& caddrs6[x].dont_bind != YES
+			&& compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].pfx)) {
 				goto _na6;
 			}
 		}
 		sa.v6a.sin6_family = AF_INET6;
-		if (randsaddr_do_reuseaddr) {
+		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
@@ -286,20 +300,24 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		return;
 	}
 
-_try4:	if (!addrs4) return;
+_try4:	if (!caddrs4) return;
 _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
-	sap = &addrs4[x];
-	if (sap->whitelisted == YES) goto _na4; /* whitelisted: get another */
+	sap = &caddrs4[x];
+	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
 	if (sap->pfx != NOSIZE) {
 		memset(&sa, 0, sizeof(sa));
-		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) return;
+		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) {
+			return;
+		}
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
-			if (addrs4[x].whitelisted == YES && compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, addrs4[x].sa.v4b, addrs4[x].pfx)) {
+			if (caddrs4[x].whitelisted == YES
+			&& caddrs4[x].dont_bind != YES
+			&& compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].pfx)) {
 				goto _na4;
 			}
 		}
 		sa.v4a.sin_family = AF_INET;
-		if (randsaddr_do_reuseaddr) {
+		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
@@ -309,13 +327,22 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	}
 }
 
+static pthread_mutex_t bind_mutex_randsaddr = PTHREAD_MUTEX_INITIALIZER;
+
+static void bind_random(int sockfd)
+{
+	pthread_mutex_lock(&bind_mutex_randsaddr);
+	common_bind_random(sockfd);
+	pthread_mutex_unlock(&bind_mutex_randsaddr);
+}
+
 int socket(int domain, int type, int protocol)
 {
 	int res;
 
 	res = syscall(SYS_socket, domain, type, protocol);
 	if (res == -1) return res;
-	if (randsaddr_do_socket) common_bind_random(res);
+	if (crandsaddr->do_socket) bind_random(res);
 	return res;
 }
 
@@ -325,25 +352,25 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	size_t x;
 	union s_addr sa;
 
-	if (randsaddr_do_bind == NO) goto _call;
+	if (crandsaddr->do_bind == NO) goto _call;
 
 	x = (size_t)addrlen;
 	if (addr->sa_family == AF_INET6) memcpy(&sa.v6a, addr, x > sizeof(sa.v6a) ? sizeof(sa.v6a) : x);
 	else if (addr->sa_family == AF_INET) memcpy(&sa.v4a, addr, x > sizeof(sa.v4a) ? sizeof(sa.v4a) : x);
 	else goto _call;
 
-	if (addrs6 && addr->sa_family == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (addrs6[x].dont_bind == YES && compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, addrs6[x].sa.v6b, addrs6[x].pfx)) {
+	if (caddrs6 && addr->sa_family == AF_INET6) for (x = 0; x < naddrs6; x++) {
+		if (caddrs6[x].dont_bind == YES && compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].pfx)) {
 			goto _call;
 		}
 	}
-	if (addrs4 && addr->sa_family == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (addrs4[x].dont_bind == YES && compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, addrs4[x].sa.v4b, addrs4[x].pfx)) {
+	if (caddrs4 && addr->sa_family == AF_INET) for (x = 0; x < naddrs4; x++) {
+		if (caddrs4[x].dont_bind == YES && compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].pfx)) {
 			goto _call;
 		}
 	}
 
-	common_bind_random(sockfd);
+	bind_random(sockfd);
 	did_bind = YES;
 
 _call:	if (did_bind) {
@@ -355,24 +382,24 @@ _call:	if (did_bind) {
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	if (randsaddr_do_connect) common_bind_random(sockfd);
+	if (crandsaddr->do_connect) bind_random(sockfd);
 	return syscall(SYS_connect, sockfd, addr, addrlen);
 }
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
-	if (randsaddr_do_send) common_bind_random(sockfd);
+	if (crandsaddr->do_send) bind_random(sockfd);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, NULL, 0);
 }
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-	if (randsaddr_do_sendto) common_bind_random(sockfd);
+	if (crandsaddr->do_sendto) bind_random(sockfd);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, dest_addr, addrlen);
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-	if (randsaddr_do_sendmsg) common_bind_random(sockfd);
+	if (crandsaddr->do_sendmsg) bind_random(sockfd);
 	return syscall(SYS_sendmsg, msg, flags);
 }
