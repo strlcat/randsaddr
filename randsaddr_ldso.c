@@ -60,7 +60,7 @@ void xmalloc_error(xmalloc_oom_caller where)
 	exit(errno);
 }
 
-static void randsaddr_init(void)
+void __attribute__((constructor)) randsaddr_init(void)
 {
 	static int initdone;
 	char *scfg, *s, *d, *t;
@@ -160,7 +160,6 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	struct s_addrcfg *sap;
 	size_t x;
 
-	randsaddr_init();
 	if (randsaddr_disabled) goto _call;
 
 	if (!addrs6) goto _try4;
