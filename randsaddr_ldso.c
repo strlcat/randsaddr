@@ -267,7 +267,7 @@ _for4:		sap = addrs4;
 	goto _done;
 }
 
-static void common_bind_random(int sockfd)
+static void common_bind_random(int sockfd, in_port_t portid)
 {
 	const struct s_addrcfg *sap;
 	size_t x;
@@ -291,6 +291,7 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 			}
 		}
 		sa.v6a.sin6_family = AF_INET6;
+		sa.v6a.sin6_port = portid;
 		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
@@ -317,6 +318,7 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 			}
 		}
 		sa.v4a.sin_family = AF_INET;
+		sa.v4a.sin_port = portid;
 		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
@@ -329,10 +331,10 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 
 static pthread_mutex_t bind_mutex_randsaddr = PTHREAD_MUTEX_INITIALIZER;
 
-static void bind_random(int sockfd)
+static void bind_random(int sockfd, in_port_t portid)
 {
 	pthread_mutex_lock(&bind_mutex_randsaddr);
-	common_bind_random(sockfd);
+	common_bind_random(sockfd, portid);
 	pthread_mutex_unlock(&bind_mutex_randsaddr);
 }
 
@@ -342,7 +344,7 @@ int socket(int domain, int type, int protocol)
 
 	res = syscall(SYS_socket, domain, type, protocol);
 	if (res == -1) return res;
-	if (crandsaddr->do_socket) bind_random(res);
+	if (crandsaddr->do_socket) bind_random(res, 0);
 	return res;
 }
 
@@ -370,7 +372,9 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 		}
 	}
 
-	bind_random(sockfd);
+	if (addr->sa_family == AF_INET6) bind_random(sockfd, sa.v6a.sin6_port);
+	else if (addr->sa_family == AF_INET) bind_random(sockfd, sa.v4a.sin_port);
+	else goto _call;
 	did_bind = YES;
 
 _call:	if (did_bind) {
@@ -382,24 +386,24 @@ _call:	if (did_bind) {
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	if (crandsaddr->do_connect) bind_random(sockfd);
+	if (crandsaddr->do_connect) bind_random(sockfd, 0);
 	return syscall(SYS_connect, sockfd, addr, addrlen);
 }
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
-	if (crandsaddr->do_send) bind_random(sockfd);
+	if (crandsaddr->do_send) bind_random(sockfd, 0);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, NULL, 0);
 }
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-	if (crandsaddr->do_sendto) bind_random(sockfd);
+	if (crandsaddr->do_sendto) bind_random(sockfd, 0);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, dest_addr, addrlen);
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-	if (crandsaddr->do_sendmsg) bind_random(sockfd);
+	if (crandsaddr->do_sendmsg) bind_random(sockfd, 0);
 	return syscall(SYS_sendmsg, msg, flags);
 }
