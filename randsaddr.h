@@ -19,7 +19,8 @@ extern int mkrandaddr4(void *, const void *, size_t);
 extern uint8_t prng_getrandc(void);
 
 extern int addr_type(const char *);
+extern int compare_prefix(int, const void *, const void *, size_t);
 
-extern size_t prng_index(size_t from, size_t to);
+extern size_t prng_index(size_t, size_t);
 
 #endif

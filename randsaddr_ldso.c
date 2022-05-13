@@ -133,7 +133,6 @@ _for4:		sap = addrs4;
 			switch (*s) {
 				case '-': /* whitelisted - don't bind to these */
 					sap[x].wl = 1;
-					sap[x].pfx = NOSIZE;
 					s++;
 				break;
 				case 'E': /* build EUI64 style saddr */
@@ -144,9 +143,7 @@ _for4:		sap = addrs4;
 			}
 		}
 
-		if (sap[x].wl != 1) {
-			if (inet_pton(sap[x].af, s, sap[x].sa.ipa) < 1) sap[x].pfx = NOSIZE;
-		}
+		if (inet_pton(sap[x].af, s, sap[x].sa.ipa) < 1) sap[x].pfx = NOSIZE;
 
 		d = sap[x].str;
 		sap[x].str = xstrdup(s);
@@ -174,6 +171,11 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx)) goto _try4;
 		if (sap->eui64) mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
+		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
+			if (addrs6[x].wl == 1 && compare_prefix(AF_INET6, &sa.v6a.sin6_addr.s6_addr, addrs6[x].sa.v6b, addrs6[x].pfx)) {
+				goto _na6;
+			}
+		}
 		sa.v6a.sin6_family = AF_INET6;
 		if (bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == -1) goto _try4;
 		goto _call;
@@ -186,6 +188,11 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	if (sap->pfx != NOSIZE) {
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx)) goto _call;
+		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
+			if (addrs4[x].wl == 1 && compare_prefix(AF_INET, &sa.v4a.sin_addr, addrs4[x].sa.v4b, addrs4[x].pfx)) {
+				goto _na4;
+			}
+		}
 		sa.v4a.sin_family = AF_INET;
 		if (bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == -1) goto _call;
 		goto _call;

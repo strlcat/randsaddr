@@ -9,7 +9,6 @@ int addr_type(const char *addr)
 	return 0;
 }
 
-#if 0
 int compare_prefix(int af, const void *a, const void *b, size_t sz)
 {
 	const uint8_t *ua = (const uint8_t *)a;
@@ -17,7 +16,8 @@ int compare_prefix(int af, const void *a, const void *b, size_t sz)
 	size_t x, y, max;
 
 	if (af == AF_INET) max = 32;
-	else max = 128;
+	else if (af == AF_INET6) max = 128;
+	else return 0;
 
 	if (sz > max) return 0;
 
@@ -33,4 +33,3 @@ int compare_prefix(int af, const void *a, const void *b, size_t sz)
 	}
 	return 1;
 }
-#endif
