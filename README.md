@@ -88,6 +88,39 @@ exec your-app args etc. "${@}"
 , and placing it alongside of original binary, placing it in place of original binary and renaming original binary ...
 Unix offers so many opportunities, you've got the idea I hope.
 
+### Additional options for RANDSADDR environment variable
+
+There are several prefixes for each subnet range you can use to alter randsaddr behavior:
+
+`E`, like `E2001:db8:7:4aa0::/60`, will mark this subnet range as `EUI64` style. Addressess generated for this
+subnet will take form like `2001:db8:7:4aa0:8a8:7cff:fee3:1a32`. The `ff:fe` in middle of `hostid` is constant
+which, according to IPv6 standard, specifies that `hostid` was simply copied from NIC's MAC address.
+So, `:8a8:7cff:fee3:1a32` part literally says "My MAC address is `08:a8:7c:e3:1a:32`".
+
+No worries tho, these bits are gathered randomly, but this may make an impression on foreign observer that
+they communicate with some real device instead of random stranger. This feature is disabled by default.
+
+`-`, like `-2001:db8:7:4aa0::/60` will exclude this range from address space. Your configuration might look like:
+
+```
+export RANDSADDR="2001:db8:7::/48,-2001:db8:7:4aa0::/60"
+```
+, which says "Use all available `2001:db8:7::/48` space but NOT addresses from `2001:db8:7:4aa0::/60`".
+
+### IPv4 compatibility
+
+You probably don't own much of "real" IPv4 addresses today. But you might do. So IPv4 is also supported, and
+you can mix IPv4 subnets with IPv6 ones in `RANDSADDR`. Otherwise, IPv4 shall be a fast no-op.
+
+### Performance
+
+Not tested much. Since configuration parsing done once first `connect(2)` is done, it shall be fast enough after that.
+I didn't took much tests. At least it _looks like_ it shall be fast enough (just one or two calls to fast PRNG plus table lookup).
+
+I guess I need move configuration parsing to init stage which will be done just after linker will load the object.
+
+If just preloaded without `RANDSADDR` envvar, randsaddr code shall effectively become no-op, immediately skipping to real `connect`.
+
 ### Further notes
 
 Some apps (like Google Chrome) may consider `LD_PRELOAD` dangerous, and they will unset it automatically. There is little
@@ -102,6 +135,10 @@ Although, I think your system runs on glibc, which is harder to deal with. And t
 
 I guess most programs which do `connect(2)` won't poke at libc internals anyway. Portable apps shall not call
 `syscall(2)` even.
+
+### TODO
+
+Support other BSD networking syscalls which might use source address, like `sendto(2)`.
 
 ### Copyright
 
