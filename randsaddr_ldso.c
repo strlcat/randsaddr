@@ -267,6 +267,25 @@ _for4:		sap = addrs4;
 	goto _done;
 }
 
+static ras_yesno addr_bindable(int af, const union s_addr *sap)
+{
+	size_t x;
+
+	if (caddrs6 && af == AF_INET6) for (x = 0; x < naddrs6; x++) {
+		if (caddrs6[x].dont_bind == YES
+		&& compare_prefix(RAT_IPV6, &sap->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].pfx)) {
+			return NO;
+		}
+	}
+	if (caddrs4 && af == AF_INET) for (x = 0; x < naddrs4; x++) {
+		if (caddrs4[x].dont_bind == YES
+		&& compare_prefix(RAT_IPV4, &sap->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].pfx)) {
+			return NO;
+		}
+	}
+	return YES;
+}
+
 static void common_bind_random(int sockfd, in_port_t portid)
 {
 	const struct s_addrcfg *sap;
@@ -292,13 +311,14 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		}
 		sa.v6a.sin6_family = AF_INET6;
 		sa.v6a.sin6_port = portid;
+		if (!addr_bindable(AF_INET6, &sa)) goto _try4;
 		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
 		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == -1) goto _try4;
-		return;
+		else return;
 	}
 
 _try4:	if (!caddrs4) return;
@@ -319,13 +339,14 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		}
 		sa.v4a.sin_family = AF_INET;
 		sa.v4a.sin_port = portid;
+		if (!addr_bindable(AF_INET, &sa)) return;
 		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
 		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == -1) return;
-		return;
+		else return;
 	}
 }
 
@@ -361,16 +382,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	else if (addr->sa_family == AF_INET) memcpy(&sa.v4a, addr, x > sizeof(sa.v4a) ? sizeof(sa.v4a) : x);
 	else goto _call;
 
-	if (caddrs6 && addr->sa_family == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].dont_bind == YES && compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].pfx)) {
-			goto _call;
-		}
-	}
-	if (caddrs4 && addr->sa_family == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].dont_bind == YES && compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].pfx)) {
-			goto _call;
-		}
-	}
+	if (!addr_bindable(addr->sa_family, &sa)) goto _call;
 
 	if (addr->sa_family == AF_INET6) bind_random(sockfd, sa.v6a.sin6_port);
 	else if (addr->sa_family == AF_INET) bind_random(sockfd, sa.v4a.sin_port);
