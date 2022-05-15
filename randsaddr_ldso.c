@@ -289,7 +289,8 @@ static ras_yesno addr_bindable(int af, const union s_addr *sap)
 	return YES;
 }
 
-static void common_bind_random(int sockfd, in_port_t portid)
+/* returns YES on successful bind(2) event, otherwise returns NO */
+static ras_yesno common_bind_random(int sockfd, in_port_t portid)
 {
 	const struct s_addrcfg *sap;
 	size_t x;
@@ -320,18 +321,18 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
-		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == -1) goto _try4;
-		else return;
+		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+		else goto _try4;
 	}
 
-_try4:	if (naddrs4 == 0) return;
+_try4:	if (naddrs4 == 0) return NO;
 _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	sap = caddrs4;
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
 	if (sap->atype == RAT_IPV4) {
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx, sap->fullbytes)) {
-			return;
+			return NO;
 		}
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
@@ -342,24 +343,30 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		}
 		sa.v4a.sin_family = AF_INET;
 		sa.v4a.sin_port = portid;
-		if (!addr_bindable(AF_INET, &sa)) return;
+		if (!addr_bindable(AF_INET, &sa)) return NO;
 		if (crandsaddr->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
-		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == -1) return;
-		else return;
+		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
+		else return NO;
 	}
+
+	return NO;
 }
 
 static pthread_mutex_t bind_mutex_randsaddr = PTHREAD_MUTEX_INITIALIZER;
 
-static void bind_random(int sockfd, in_port_t portid)
+static ras_yesno bind_random(int sockfd, in_port_t portid)
 {
+	ras_yesno res;
+
 	pthread_mutex_lock(&bind_mutex_randsaddr);
-	common_bind_random(sockfd, portid);
+	res = common_bind_random(sockfd, portid);
 	pthread_mutex_unlock(&bind_mutex_randsaddr);
+
+	return res;
 }
 
 int socket(int domain, int type, int protocol)
@@ -387,10 +394,9 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 	if (!addr_bindable(addr->sa_family, &sa)) goto _call;
 
-	if (addr->sa_family == AF_INET6) bind_random(sockfd, sa.v6a.sin6_port);
-	else if (addr->sa_family == AF_INET) bind_random(sockfd, sa.v4a.sin_port);
+	if (addr->sa_family == AF_INET6) did_bind = bind_random(sockfd, sa.v6a.sin6_port);
+	else if (addr->sa_family == AF_INET) did_bind = bind_random(sockfd, sa.v4a.sin_port);
 	else goto _call;
-	did_bind = YES;
 
 _call:	if (did_bind) {
 		errno = 0;
