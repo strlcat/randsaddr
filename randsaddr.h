@@ -6,7 +6,6 @@
 #include "tfdef.h"
 #include "tfe.h"
 #include "tfprng.h"
-#include "xmalloc.h"
 
 enum { NO, YES };
 enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
@@ -30,6 +29,7 @@ extern ras_yesno compare_prefix(ras_atype, const void *, const void *, size_t);
 
 extern size_t prng_index(size_t, size_t);
 
+extern size_t xstrlcpy(char *, const char *, size_t);
 extern size_t strxstr(char *, const char *, const char *);
 
 #endif

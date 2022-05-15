@@ -16,6 +16,9 @@
 #include <pthread.h>
 #include "randsaddr.h"
 
+#define SADDRLEN INET6_ADDRSTRLEN+4
+#define NADDRS 64
+
 union s_addr {
 	uint8_t ipa[16];
 	struct sockaddr_in6 v6a;
@@ -25,7 +28,7 @@ union s_addr {
 };
 
 struct s_addrcfg {
-	char *str;
+	char str[SADDRLEN];
 	size_t pfx;
 	ras_atype atype;
 	union s_addr sa;
@@ -36,6 +39,8 @@ struct s_addrcfg {
 };
 
 struct s_envcfg {
+	char str[sizeof(struct s_addrcfg)*NADDRS*2];
+
 	ras_yesno initdone;
 	ras_yesno disabled;
 
@@ -53,36 +58,14 @@ struct s_envcfg {
 static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, };
 static const struct s_envcfg *crandsaddr = &randsaddr;
 
-static struct s_addrcfg *addrs6;
+static struct s_addrcfg addrs6[NADDRS];
 static size_t naddrs6;
-static struct s_addrcfg *addrs4;
+static struct s_addrcfg addrs4[NADDRS];
 static size_t naddrs4;
 
 /* We shall not write to these outside of init function. */
-static const struct s_addrcfg *caddrs6;
-static const struct s_addrcfg *caddrs4;
-
-int xmalloc_oom(int fail, xmalloc_oom_caller where)
-{
-	if (!fail) return 1;
-
-	errno = ENOMEM;
-	perror("xmalloc");
-	exit(errno);
-}
-
-void xmalloc_ub(const void *addr)
-{
-	errno = EFAULT;
-	perror("xmalloc");
-	exit(errno);
-}
-
-void xmalloc_error(xmalloc_oom_caller where)
-{
-	perror("xmalloc");
-	exit(errno);
-}
+static const struct s_addrcfg *caddrs6 = &addrs6[0];
+static const struct s_addrcfg *caddrs4 = &addrs4[0];
 
 void __attribute__((constructor)) randsaddr_init(void)
 {
@@ -90,20 +73,20 @@ void __attribute__((constructor)) randsaddr_init(void)
 	size_t sz, x, y;
 	ras_atype type;
 	struct s_addrcfg *sap;
+	char tmp[SADDRLEN];
 
 	if (randsaddr.initdone) return;
 	if (randsaddr.disabled) return;
 
 	s = getenv("RANDSADDR");
 	if (!s) {
-		randsaddr.disabled = YES;
+_disable:	randsaddr.disabled = YES;
 _done:		randsaddr.initdone = YES;
 		return;
 	}
 	else {
-		scfg = xstrdup(s);
-		memset(s, 0, strlen(s));
-		unsetenv("RANDSADDR");
+		if (xstrlcpy(randsaddr.str, s, sizeof(randsaddr.str)) >= sizeof(randsaddr.str)) goto _disable;
+		scfg = randsaddr.str;
 	}
 
 	s = d = scfg; t = NULL;
@@ -185,29 +168,32 @@ _done:		randsaddr.initdone = YES;
 
 		type = addr_type(s);
 		if (type == RAT_IPV6) {
-			sz = DYN_ARRAY_SZ(addrs6);
-			addrs6 = xrealloc(addrs6, (sz+1)*sizeof(struct s_addrcfg));
-			addrs6[sz].atype = type;
-			addrs6[sz].str = xstrdup(s); /* [-/W][B][E]2001:db8:76ba:8aef::/64 */
-			addrs6[sz].eui64 = crandsaddr->do_eui64;
-			addrs6[sz].fullbytes = crandsaddr->do_fullbytes;
-			addrs6[sz].pfx = NOSIZE; /* filled later */
-			naddrs6 = DYN_ARRAY_SZ(addrs6);
+			if (naddrs6 >= NADDRS) continue;
+			addrs6[naddrs6].atype = type;
+			if (xstrlcpy(addrs6[naddrs6].str, s, sizeof(addrs6[naddrs6].str)) >= sizeof(addrs6[naddrs6].str)) {
+				memset(addrs6[naddrs6].str, 0, sizeof(addrs6[naddrs6].str));
+				addrs6[naddrs6].atype = RAT_NONE;
+				continue;
+			}
+			addrs6[naddrs6].eui64 = crandsaddr->do_eui64;
+			addrs6[naddrs6].fullbytes = crandsaddr->do_fullbytes;
+			addrs6[naddrs6].pfx = NOSIZE; /* filled later */
+			naddrs6++;
 		}
 		else if (type == RAT_IPV4) {
-			sz = DYN_ARRAY_SZ(addrs4);
-			addrs4 = xrealloc(addrs4, (sz+1)*sizeof(struct s_addrcfg));
-			addrs4[sz].atype = type;
-			addrs4[sz].str = xstrdup(s); /* [-/W][B]192.0.2.1/24 */
-			addrs4[sz].fullbytes = crandsaddr->do_fullbytes;
-			addrs4[sz].pfx = NOSIZE; /* filled later */
-			naddrs4 = DYN_ARRAY_SZ(addrs4);
+			if (naddrs4 >= NADDRS) continue;
+			naddrs4 = naddrs4;
+			addrs4[naddrs4].atype = type;
+			if (xstrlcpy(addrs4[naddrs4].str, s, sizeof(addrs4[naddrs4].str)) >= sizeof(addrs4[naddrs4].str)) {
+				memset(addrs4[naddrs4].str, 0, sizeof(addrs4[naddrs4].str));
+				addrs4[naddrs4].atype = RAT_NONE;
+				continue;
+			}
+			addrs4[naddrs4].fullbytes = crandsaddr->do_fullbytes;
+			addrs4[naddrs4].pfx = NOSIZE; /* filled later */
+			naddrs4++;
 		}
 	}
-
-	pfree(scfg);
-	caddrs6 = addrs6;
-	caddrs4 = addrs4;
 
 	sap = addrs6;
 	sz = naddrs6;
@@ -219,27 +205,27 @@ _for4:		sap = addrs4;
 
 	for (x = 0; x < sz; x++) {
 		if (sap[x].atype != RAT_IPV4 && sap[x].atype != RAT_IPV6) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 		s = sap[x].str;
 		d = strchr(s, '/');
 		if (!d) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 		*d = 0; d++;
 		if (strchr(d, '/')) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 		sap[x].pfx = (size_t)atoi(d);
 		if (sap[x].pfx > 128) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 		else if (sap[x].atype == RAT_IPV4 && sap[x].pfx > 32) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 		s = sap[x].str;
@@ -251,7 +237,7 @@ _for4:		sap = addrs4;
 					s++;
 				break;
 				case 'E': /* build EUI64 style saddr */
-					if (sap[x].pfx > 88) sap[x].pfx = NOSIZE;
+					if (sap[x].pfx > 88) sap[x].atype = RAT_NONE;
 					else sap[x].eui64 = 1;
 					s++;
 				break;
@@ -270,13 +256,12 @@ _for4:		sap = addrs4;
 		strxstr(s, "[", "");
 		strxstr(s, "]", "");
 		if (inet_pton(sap[x].atype == RAT_IPV4 ? AF_INET : AF_INET6, s, sap[x].sa.ipa) < 1) {
-			sap[x].pfx = NOSIZE;
+			sap[x].atype = RAT_NONE;
 			continue;
 		}
 
-		d = sap[x].str;
-		sap[x].str = xstrdup(s);
-		pfree(d);
+		xstrlcpy(tmp, s, SADDRLEN);
+		xstrlcpy(sap[x].str, tmp, SADDRLEN);
 	}
 	if (sap && sap == addrs6) goto _for4;
 
@@ -287,14 +272,16 @@ static ras_yesno addr_bindable(int af, const union s_addr *sap)
 {
 	size_t x;
 
-	if (caddrs6 && af == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].dont_bind == YES
+	if (af == AF_INET6) for (x = 0; x < naddrs6; x++) {
+		if (caddrs6[x].atype == RAT_IPV6
+		&& caddrs6[x].dont_bind == YES
 		&& compare_prefix(RAT_IPV6, &sap->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].pfx)) {
 			return NO;
 		}
 	}
-	if (caddrs4 && af == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].dont_bind == YES
+	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
+		if (caddrs4[x].atype == RAT_IPV4
+		&& caddrs4[x].dont_bind == YES
 		&& compare_prefix(RAT_IPV4, &sap->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].pfx)) {
 			return NO;
 		}
@@ -308,11 +295,11 @@ static void common_bind_random(int sockfd, in_port_t portid)
 	size_t x;
 	union s_addr sa;
 
-	if (!caddrs6) goto _try4;
+	if (naddrs6 == 0) goto _try4;
 _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
-	sap = &caddrs6[x];
+	sap = caddrs6;
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
-	if (sap->pfx != NOSIZE) { /* fail of you to provide valid cfg */
+	if (sap->atype == RAT_IPV6) { /* fail of you to provide valid cfg */
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->pfx, sap->fullbytes)) {
 			goto _try4;
@@ -337,11 +324,11 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		else return;
 	}
 
-_try4:	if (!caddrs4) return;
+_try4:	if (naddrs4 == 0) return;
 _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
-	sap = &caddrs4[x];
+	sap = caddrs4;
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
-	if (sap->pfx != NOSIZE) {
+	if (sap->atype == RAT_IPV4) {
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->pfx, sap->fullbytes)) {
 			return;
