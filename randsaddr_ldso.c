@@ -207,7 +207,6 @@ _done:		randsaddr.initdone = YES;
 		}
 		else if (type == RAT_IPV4) {
 			if (naddrs4 >= NADDRS) continue;
-			naddrs4 = naddrs4;
 			addrs4[naddrs4].atype = type;
 			if (xstrlcpy(addrs4[naddrs4].s_addr, s, sizeof(addrs4[naddrs4].s_addr)) >= sizeof(addrs4[naddrs4].s_addr)) {
 				addrs4[naddrs4].atype = RAT_NONE;
