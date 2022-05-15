@@ -74,7 +74,7 @@ static const struct s_addrcfg *caddrs4 = &addrs4[0];
 
 void __attribute__((constructor)) randsaddr_init(void)
 {
-	char *scfg, *s, *d, *t;
+	char *scfg, *s, *d, *t, *p;
 	size_t sz, x, y;
 	ras_atype type;
 	struct s_addrcfg *sap;
@@ -179,9 +179,9 @@ _done:		randsaddr.initdone = YES;
 			continue;
 		}
 
-		d = strchr(s, '=');
-		if (d) {
-			*d = 0; d++;
+		p = strchr(s, '=');
+		if (p) {
+			*p = 0; p++;
 		}
 
 		type = addr_type(s);
@@ -195,9 +195,9 @@ _done:		randsaddr.initdone = YES;
 			addrs6[naddrs6].eui64 = crandsaddr->do_eui64;
 			addrs6[naddrs6].fullbytes = crandsaddr->do_fullbytes;
 			addrs6[naddrs6].s_pfx = NOSIZE; /* filled later */
-			if (d) {
+			if (p) {
 				addrs6[naddrs6].remap = YES;
-				if (xstrlcpy(addrs6[naddrs6].d_addr, d, sizeof(addrs6[naddrs6].d_addr)) >= sizeof(addrs6[naddrs6].d_addr)) {
+				if (xstrlcpy(addrs6[naddrs6].d_addr, p, sizeof(addrs6[naddrs6].d_addr)) >= sizeof(addrs6[naddrs6].d_addr)) {
 					addrs6[naddrs6].atype = RAT_NONE;
 					continue;
 				}
@@ -215,9 +215,9 @@ _done:		randsaddr.initdone = YES;
 			}
 			addrs4[naddrs4].fullbytes = crandsaddr->do_fullbytes;
 			addrs4[naddrs4].s_pfx = NOSIZE; /* filled later */
-			if (d) {
+			if (p) {
 				addrs4[naddrs4].remap = YES;
-				if (xstrlcpy(addrs4[naddrs4].d_addr, d, sizeof(addrs4[naddrs4].d_addr)) >= sizeof(addrs4[naddrs4].d_addr)) {
+				if (xstrlcpy(addrs4[naddrs4].d_addr, p, sizeof(addrs4[naddrs4].d_addr)) >= sizeof(addrs4[naddrs4].d_addr)) {
 					addrs4[naddrs4].atype = RAT_NONE;
 					continue;
 				}
@@ -371,6 +371,7 @@ static ras_yesno addr_remapped(int af, union s_addr *pda, const union s_addr *ps
 		&& compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
 			res = YES;
 			sap = &caddrs6[x];
+			break;
 		}
 	}
 	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
@@ -379,6 +380,7 @@ static ras_yesno addr_remapped(int af, union s_addr *pda, const union s_addr *ps
 		&& compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
 			res = YES;
 			sap = &caddrs4[x];
+			break;
 		}
 	}
 
@@ -396,7 +398,7 @@ static ras_yesno addr_remapped(int af, union s_addr *pda, const union s_addr *ps
 }
 
 /* returns YES on successful bind(2) event, otherwise returns NO */
-static ras_yesno common_bind_random(int sockfd, in_port_t portid)
+static ras_yesno common_bind_random(int sockfd, in_port_t portid, ras_yesno from_bind)
 {
 	const struct s_addrcfg *sap;
 	size_t x;
@@ -404,8 +406,9 @@ static ras_yesno common_bind_random(int sockfd, in_port_t portid)
 
 	if (naddrs6 == 0) goto _try4;
 _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
-	sap = caddrs6;
+	sap = &caddrs6[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
+	if (sap->remap == YES && from_bind == YES) return NO;
 	if (sap->atype == RAT_IPV6) { /* fail of you to provide valid cfg */
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
@@ -433,8 +436,9 @@ _na6:	x = prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 
 _try4:	if (naddrs4 == 0) return NO;
 _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
-	sap = caddrs4;
+	sap = &caddrs4[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
+	if (sap->remap == YES && from_bind == YES) return NO;
 	if (sap->atype == RAT_IPV4) {
 		memset(&sa, 0, sizeof(sa));
 		if (!mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
@@ -464,12 +468,12 @@ _na4:	x = prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 
 static pthread_mutex_t bind_mutex_randsaddr = PTHREAD_MUTEX_INITIALIZER;
 
-static ras_yesno bind_random(int sockfd, in_port_t portid)
+static ras_yesno bind_random(int sockfd, in_port_t portid, ras_yesno from_bind)
 {
 	ras_yesno res;
 
 	pthread_mutex_lock(&bind_mutex_randsaddr);
-	res = common_bind_random(sockfd, portid);
+	res = common_bind_random(sockfd, portid, from_bind);
 	pthread_mutex_unlock(&bind_mutex_randsaddr);
 
 	return res;
@@ -481,7 +485,7 @@ int socket(int domain, int type, int protocol)
 
 	res = syscall(SYS_socket, domain, type, protocol);
 	if (res == -1) return res;
-	if (crandsaddr->do_socket) bind_random(res, 0);
+	if (crandsaddr->do_socket) bind_random(res, 0, NO);
 	return res;
 }
 
@@ -507,8 +511,8 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 	if (!addr_bindable(addr->sa_family, &sa)) goto _call;
 
-	if (addr->sa_family == AF_INET6) did_bind = bind_random(sockfd, sa.v6a.sin6_port);
-	else if (addr->sa_family == AF_INET) did_bind = bind_random(sockfd, sa.v4a.sin_port);
+	if (addr->sa_family == AF_INET6) did_bind = bind_random(sockfd, sa.v6a.sin6_port, YES);
+	else if (addr->sa_family == AF_INET) did_bind = bind_random(sockfd, sa.v4a.sin_port, YES);
 	else goto _call;
 
 _call:	if (did_bind) {
@@ -520,24 +524,24 @@ _call:	if (did_bind) {
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-	if (crandsaddr->do_connect) bind_random(sockfd, 0);
+	if (crandsaddr->do_connect) bind_random(sockfd, 0, NO);
 	return syscall(SYS_connect, sockfd, addr, addrlen);
 }
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
-	if (crandsaddr->do_send) bind_random(sockfd, 0);
+	if (crandsaddr->do_send) bind_random(sockfd, 0, NO);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, NULL, 0);
 }
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-	if (crandsaddr->do_sendto) bind_random(sockfd, 0);
+	if (crandsaddr->do_sendto) bind_random(sockfd, 0, NO);
 	return syscall(SYS_sendto, sockfd, buf, len, flags, dest_addr, addrlen);
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-	if (crandsaddr->do_sendmsg) bind_random(sockfd, 0);
+	if (crandsaddr->do_sendmsg) bind_random(sockfd, 0, NO);
 	return syscall(SYS_sendmsg, msg, flags);
 }
