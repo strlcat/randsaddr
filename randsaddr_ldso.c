@@ -53,6 +53,7 @@ struct s_envcfg {
 	ras_yesno do_reuseaddr;
 	ras_yesno do_eui64;
 	ras_yesno do_fullbytes;
+	ras_yesno do_clear_env;
 };
 
 static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, };
@@ -165,6 +166,14 @@ _done:		randsaddr.initdone = YES;
 			randsaddr.do_fullbytes = NO;
 			continue;
 		}
+		else if (!strcasecmp(s, "env")) {
+			randsaddr.do_clear_env = NO;
+			continue;
+		}
+		else if (!strcasecmp(s, "-env")) {
+			randsaddr.do_clear_env = YES;
+			continue;
+		}
 
 		type = addr_type(s);
 		if (type == RAT_IPV6) {
@@ -193,6 +202,12 @@ _done:		randsaddr.initdone = YES;
 			addrs4[naddrs4].pfx = NOSIZE; /* filled later */
 			naddrs4++;
 		}
+	}
+
+	if (randsaddr.do_clear_env) {
+		s = getenv("RANDSADDR");
+		if (s) memset(s, 0, strlen(s));
+		unsetenv("RANDSADDR");
 	}
 
 	sap = addrs6;
