@@ -93,6 +93,7 @@ extern ras_atype ras_addr_type(const char *);
 extern ras_yesno ras_compare_prefix(ras_atype, const void *, const void *, size_t);
 
 extern size_t ras_strlcpy(char *, const char *, size_t);
+extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
 extern void ras_init(void);

@@ -12,6 +12,12 @@ static size_t naddrs4;
 static const struct s_addrcfg *caddrs6 = &addrs6[0];
 static const struct s_addrcfg *caddrs4 = &addrs4[0];
 
+static ras_yesno str_empty(const char *s)
+{
+	if (!*s) return YES;
+	return NO;
+}
+
 static void do_init(void)
 {
 	char *scfg, *s, *d, *t, *p;
@@ -31,12 +37,15 @@ _done:		randsaddr.initdone = YES;
 	}
 	else {
 		if (ras_strlcpy(randsaddr.s_cfg, s, sizeof(randsaddr.s_cfg)) >= sizeof(randsaddr.s_cfg)) goto _disable;
+		ras_strlxstr(randsaddr.s_cfg, sizeof(randsaddr.s_cfg), "\r\n", "\n");
 		scfg = randsaddr.s_cfg;
 	}
 
 	s = d = scfg; t = NULL;
-	while ((s = strtok_r(d, ",", &t))) {
+	while ((s = strtok_r(d, " ,\n\t", &t))) {
 		if (d) d = NULL;
+
+		if (str_empty(s)) continue;
 
 		if (!strcasecmp(s, "socket")) {
 			randsaddr.do_socket = YES;
