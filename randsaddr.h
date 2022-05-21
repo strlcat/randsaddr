@@ -92,6 +92,11 @@ extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);
 extern size_t ras_saddr_prefix(const char *);
 extern ras_yesno ras_compare_prefix(ras_atype, const void *, const void *, size_t);
 
+static inline ras_yesno ras_str_empty(const char *str)
+{
+	if (!*str) return YES;
+	return NO;
+}
 extern size_t ras_strlcpy(char *, const char *, size_t);
 extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);

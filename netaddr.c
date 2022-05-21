@@ -39,7 +39,7 @@ ras_yesno ras_stobaddr(ras_atype type, void *baddr, const char *saddr)
 
 size_t ras_saddr_prefix(const char *saddr)
 {
-	char stmp[RAS_ADDRLEN], *s, *d;
+	char stmp[RAS_ADDRLEN], *s, *d, *stoi;
 	ras_atype atype;
 	size_t res;
 
@@ -54,7 +54,9 @@ size_t ras_saddr_prefix(const char *saddr)
 	*d = 0; d++;
 	if (strchr(d, '/')) return NOSIZE;
 
-	res = (size_t)atoi(d);
+	res = (size_t)strtoul(d, &stoi, 10);
+
+	if (!ras_str_empty(stoi)) return NOSIZE;
 	if (atype == RAT_IPV6 && res > 128) return NOSIZE;
 	else if (atype == RAT_IPV4 && res > 32) return NOSIZE;
 

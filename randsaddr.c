@@ -12,12 +12,6 @@ static size_t naddrs4;
 static const struct s_addrcfg *caddrs6 = &addrs6[0];
 static const struct s_addrcfg *caddrs4 = &addrs4[0];
 
-static ras_yesno str_empty(const char *s)
-{
-	if (!*s) return YES;
-	return NO;
-}
-
 static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 {
 	size_t x;
@@ -75,7 +69,7 @@ _done:		randsaddr.initdone = YES;
 	while ((s = strtok_r(d, " ,\n\t", &t))) {
 		if (d) d = NULL;
 
-		if (str_empty(s)) continue;
+		if (ras_str_empty(s)) continue;
 
 		if (!strcasecmp(s, "socket")) {
 			randsaddr.do_socket = YES;
