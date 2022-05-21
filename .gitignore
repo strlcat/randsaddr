@@ -1,6 +1,7 @@
 _*
 *.swp
 *.o
+*.lo
 *.a
 *.out
 *.key

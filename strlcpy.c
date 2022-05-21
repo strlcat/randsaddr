@@ -1,7 +1,7 @@
 #include <stddef.h>
 #include <string.h>
 
-size_t xstrlcpy(char *dst, const char *src, size_t size)
+size_t ras_strlcpy(char *dst, const char *src, size_t size)
 {
 	size_t len, srclen;
 	srclen = strlen(src);

@@ -1,6 +1,6 @@
 #include <string.h>
 
-size_t strltxstr(char *str, size_t n, int *nr_reps, const char *from, const char *to)
+size_t ras_strltxstr(char *str, size_t n, int *nr_reps, const char *from, const char *to)
 {
 	size_t sl, fl, tl, step;
 	int l_nr_reps;
@@ -59,14 +59,14 @@ size_t strltxstr(char *str, size_t n, int *nr_reps, const char *from, const char
 _err:	return sl > n ? n : sl;
 }
 
-size_t strlxstr(char *str, size_t n, const char *from, const char *to)
+size_t ras_strlxstr(char *str, size_t n, const char *from, const char *to)
 {
-	return strltxstr(str, n, NULL, from, to);
+	return ras_strltxstr(str, n, NULL, from, to);
 }
 
-size_t strxstr(char *str, const char *from, const char *to)
+size_t ras_strxstr(char *str, const char *from, const char *to)
 {
 	size_t x = strlen(str)+1;
-	size_t y = strltxstr(str, x, NULL, from, to);
+	size_t y = ras_strltxstr(str, x, NULL, from, to);
 	return y == x ? x-1 : y;
 }
