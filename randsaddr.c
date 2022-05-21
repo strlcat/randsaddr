@@ -3,9 +3,9 @@
 static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, };
 const struct s_envcfg *randsaddr_config = &randsaddr;
 
-static struct s_addrcfg addrs6[NADDRS];
+static struct s_addrcfg addrs6[RAS_NADDRS];
 static size_t naddrs6;
-static struct s_addrcfg addrs4[NADDRS];
+static struct s_addrcfg addrs4[RAS_NADDRS];
 static size_t naddrs4;
 
 /* We shall not write to these outside of init function. */
@@ -18,13 +18,43 @@ static ras_yesno str_empty(const char *s)
 	return NO;
 }
 
+static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
+{
+	size_t x;
+	const char *s = (const char *)saddr;
+
+	for (x = 0; x < 4; x++) {
+		switch (*s) {
+			case '-': /* whitelisted - don't bind to these */
+			case 'W':
+				sap->whitelisted = YES;
+				s++;
+			break;
+			case 'E': /* build EUI64 style saddr */
+				if (sap->s_pfx > 88) sap->atype = RAT_NONE;
+				else sap->eui64 = YES;
+				s++;
+			break;
+			case 'B':
+				sap->whitelisted = YES;
+				sap->dont_bind = YES;
+				s++;
+			break;
+			case 'F':
+				sap->fullbytes = YES;
+				s++;
+			break;
+		}
+	}
+
+	return (char *)s;
+}
+
 static void do_init(void)
 {
-	char *scfg, *s, *d, *t, *p;
-	size_t sz, x, y;
+	static char scfg[RAS_CFGSZ];
+	char *s, *d, *t, *p;
 	ras_atype type;
-	struct s_addrcfg *sap;
-	char tmp[SADDRLEN];
 
 	if (randsaddr.initdone) return;
 	if (randsaddr.disabled) return;
@@ -33,12 +63,12 @@ static void do_init(void)
 	if (!s) {
 _disable:	randsaddr.disabled = YES;
 _done:		randsaddr.initdone = YES;
+		memset(scfg, 0, sizeof(scfg));
 		return;
 	}
 	else {
-		if (ras_strlcpy(randsaddr.s_cfg, s, sizeof(randsaddr.s_cfg)) >= sizeof(randsaddr.s_cfg)) goto _disable;
-		ras_strlxstr(randsaddr.s_cfg, sizeof(randsaddr.s_cfg), "\r\n", "\n");
-		scfg = randsaddr.s_cfg;
+		if (ras_strlcpy(scfg, s, sizeof(scfg)) >= sizeof(scfg)) goto _disable;
+		ras_strlxstr(scfg, sizeof(scfg), "\r\n", "\n");
 	}
 
 	s = d = scfg; t = NULL;
@@ -135,41 +165,43 @@ _done:		randsaddr.initdone = YES;
 
 		type = ras_addr_type(s);
 		if (type == RAT_IPV6) {
-			if (naddrs6 >= NADDRS) continue;
+			if (naddrs6 >= RAS_NADDRS) continue;
 			addrs6[naddrs6].atype = type;
-			if (ras_strlcpy(addrs6[naddrs6].s_addr, s, sizeof(addrs6[naddrs6].s_addr)) >= sizeof(addrs6[naddrs6].s_addr)) {
+			addrs6[naddrs6].eui64 = randsaddr_config->do_eui64;
+			addrs6[naddrs6].fullbytes = randsaddr_config->do_fullbytes;
+			addrs6[naddrs6].s_pfx = ras_saddr_prefix(s);
+			s = parse_flags(&addrs6[naddrs6], s);
+			if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].sa.ipa, s) != YES) {
 				addrs6[naddrs6].atype = RAT_NONE;
 				continue;
 			}
-			addrs6[naddrs6].eui64 = randsaddr_config->do_eui64;
-			addrs6[naddrs6].fullbytes = randsaddr_config->do_fullbytes;
-			addrs6[naddrs6].s_pfx = NOSIZE; /* filled later */
 			if (p) {
 				addrs6[naddrs6].remap = YES;
-				if (ras_strlcpy(addrs6[naddrs6].d_addr, p, sizeof(addrs6[naddrs6].d_addr)) >= sizeof(addrs6[naddrs6].d_addr)) {
+				addrs6[naddrs6].d_pfx = ras_saddr_prefix(p);
+				if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].da.ipa, p) != YES) {
 					addrs6[naddrs6].atype = RAT_NONE;
 					continue;
 				}
-				addrs6[naddrs6].d_pfx = NOSIZE; /* filled later */
 			}
 			naddrs6++;
 		}
 		else if (type == RAT_IPV4) {
-			if (naddrs4 >= NADDRS) continue;
+			if (naddrs4 >= RAS_NADDRS) continue;
 			addrs4[naddrs4].atype = type;
-			if (ras_strlcpy(addrs4[naddrs4].s_addr, s, sizeof(addrs4[naddrs4].s_addr)) >= sizeof(addrs4[naddrs4].s_addr)) {
+			addrs4[naddrs4].fullbytes = randsaddr_config->do_fullbytes;
+			addrs4[naddrs4].s_pfx = ras_saddr_prefix(s);
+			s = parse_flags(&addrs4[naddrs4], s);
+			if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].sa.ipa, s) != YES) {
 				addrs4[naddrs4].atype = RAT_NONE;
 				continue;
 			}
-			addrs4[naddrs4].fullbytes = randsaddr_config->do_fullbytes;
-			addrs4[naddrs4].s_pfx = NOSIZE; /* filled later */
 			if (p) {
 				addrs4[naddrs4].remap = YES;
-				if (ras_strlcpy(addrs4[naddrs4].d_addr, p, sizeof(addrs4[naddrs4].d_addr)) >= sizeof(addrs4[naddrs4].d_addr)) {
+				addrs4[naddrs4].d_pfx = ras_saddr_prefix(p);
+				if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].da.ipa, p) != YES) {
 					addrs4[naddrs4].atype = RAT_NONE;
 					continue;
 				}
-				addrs4[naddrs4].d_pfx = NOSIZE; /* filled later */
 			}
 			naddrs4++;
 		}
@@ -180,106 +212,6 @@ _done:		randsaddr.initdone = YES;
 		if (s) memset(s, 0, strlen(s));
 		unsetenv("RANDSADDR");
 	}
-
-	sap = addrs6;
-	sz = naddrs6;
-	if (sz == 0) {
-_for4:		sap = addrs4;
-		sz = naddrs4;
-		if (sz == 0) goto _done;
-	}
-
-	for (x = 0; x < sz; x++) {
-		if (sap[x].atype != RAT_IPV4 && sap[x].atype != RAT_IPV6) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		s = sap[x].s_addr;
-		d = strchr(s, '/');
-		if (!d) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		*d = 0; d++;
-		if (strchr(d, '/')) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		sap[x].s_pfx = (size_t)atoi(d);
-		if (sap[x].s_pfx > 128) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		else if (sap[x].atype == RAT_IPV4 && sap[x].s_pfx > 32) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		s = sap[x].s_addr;
-		for (y = 0; y < 4; y++) {
-			switch (*s) {
-				case '-': /* whitelisted - don't bind to these */
-				case 'W':
-					sap[x].whitelisted = YES;
-					s++;
-				break;
-				case 'E': /* build EUI64 style saddr */
-					if (sap[x].s_pfx > 88) sap[x].atype = RAT_NONE;
-					else sap[x].eui64 = 1;
-					s++;
-				break;
-				case 'B':
-					sap[x].whitelisted = YES;
-					sap[x].dont_bind = YES;
-					s++;
-				break;
-				case 'F':
-					sap[x].fullbytes = YES;
-					s++;
-				break;
-			}
-		}
-
-		ras_strxstr(s, "[", "");
-		ras_strxstr(s, "]", "");
-		if (inet_pton(sap[x].atype == RAT_IPV4 ? AF_INET : AF_INET6, s, sap[x].sa.ipa) < 1) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-
-		ras_strlcpy(tmp, s, SADDRLEN);
-		ras_strlcpy(sap[x].s_addr, tmp, SADDRLEN);
-
-		if (sap[x].remap == NO) continue;
-
-		s = sap[x].d_addr;
-		d = strchr(s, '/');
-		if (!d) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		*d = 0; d++;
-		if (strchr(d, '/')) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		sap[x].d_pfx = (size_t)atoi(d);
-		if (sap[x].d_pfx > 128) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-		else if (sap[x].atype == RAT_IPV4 && sap[x].d_pfx > 32) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-
-		ras_strxstr(s, "[", "");
-		ras_strxstr(s, "]", "");
-		if (inet_pton(sap[x].atype == RAT_IPV4 ? AF_INET : AF_INET6, s, sap[x].da.ipa) < 1) {
-			sap[x].atype = RAT_NONE;
-			continue;
-		}
-	}
-	if (sap && sap == addrs6) goto _for4;
 
 	goto _done;
 }

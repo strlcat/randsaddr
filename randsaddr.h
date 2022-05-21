@@ -35,8 +35,10 @@ typedef short ras_atype;
 #define STAT_ARRAY_SZ(x) (sizeof(x)/sizeof(*x))
 #define CSTR_SZ(x) (sizeof(x)-1)
 
-#define SADDRLEN INET6_ADDRSTRLEN+4
-#define NADDRS 64
+#define RAS_CFGSZ 10240
+
+#define RAS_ADDRLEN INET6_ADDRSTRLEN+4
+#define RAS_NADDRS 256
 
 union s_addr {
 	uint8_t ipa[16];
@@ -48,7 +50,6 @@ union s_addr {
 
 struct s_addrcfg {
 	ras_atype atype;
-	char s_addr[SADDRLEN];
 	size_t s_pfx;
 	union s_addr sa;
 	ras_yesno eui64;
@@ -56,14 +57,11 @@ struct s_addrcfg {
 	ras_yesno dont_bind;
 	ras_yesno fullbytes;
 	ras_yesno remap;
-	char d_addr[SADDRLEN];
 	size_t d_pfx;
 	union s_addr da;
 };
 
 struct s_envcfg {
-	char s_cfg[sizeof(struct s_addrcfg)*NADDRS*2];
-
 	ras_yesno initdone;
 	ras_yesno disabled;
 
@@ -90,6 +88,8 @@ extern uint8_t ras_prng_getrandc(ras_yesno);
 extern size_t ras_prng_index(size_t, size_t);
 
 extern ras_atype ras_addr_type(const char *);
+extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);
+extern size_t ras_saddr_prefix(const char *);
 extern ras_yesno ras_compare_prefix(ras_atype, const void *, const void *, size_t);
 
 extern size_t ras_strlcpy(char *, const char *, size_t);
