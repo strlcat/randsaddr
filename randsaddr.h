@@ -39,6 +39,7 @@ typedef short ras_atype;
 
 #define RAS_ADDRLEN INET6_ADDRSTRLEN+4
 #define RAS_NADDRS 256
+#define RAS_NRANDPATHS 8
 
 union s_addr {
 	uint8_t ipa[16];
@@ -75,6 +76,8 @@ struct s_envcfg {
 	ras_yesno do_eui64;
 	ras_yesno do_fullbytes;
 	ras_yesno do_clear_env;
+
+	char *randsources[RAS_NRANDPATHS];
 };
 
 extern const struct s_envcfg *randsaddr_config;

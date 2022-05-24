@@ -1,6 +1,6 @@
 #include "randsaddr.h"
 
-static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, };
+static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, .randsources[0] = "/dev/urandom", };
 const struct s_envcfg *randsaddr_config = &randsaddr;
 
 static struct s_addrcfg addrs6[RAS_NADDRS];
@@ -71,7 +71,15 @@ _done:		randsaddr.initdone = YES;
 
 		if (ras_str_empty(s)) continue;
 
-		if (!strcasecmp(s, "socket")) {
+		if (!strncasecmp(s, "random=", CSTR_SZ("random="))) {
+			size_t x;
+
+			for (x = 0; randsaddr.randsources[x] && x < RAS_NRANDPATHS; x++);
+			if (x >= RAS_NRANDPATHS) continue;
+			randsaddr.randsources[x] = s+CSTR_SZ("random=");
+			continue;
+		}
+		else if (!strcasecmp(s, "socket")) {
 			randsaddr.do_socket = YES;
 			continue;
 		}
@@ -200,6 +208,8 @@ _done:		randsaddr.initdone = YES;
 			naddrs4++;
 		}
 	}
+
+	ras_prng_init();
 
 	if (randsaddr.do_clear_env) {
 		s = getenv("RANDSADDR");
@@ -345,7 +355,6 @@ static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 void ras_init(void)
 {
 	pthread_mutex_lock(&init_mutex);
-	ras_prng_init();
 	do_init();
 	pthread_mutex_unlock(&init_mutex);
 }
