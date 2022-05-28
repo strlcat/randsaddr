@@ -1,7 +1,8 @@
-## randsaddr: randomize source address before connect(2).
+## randsaddr: randomize network source address.
 
 ### What is it for?
-randsaddr.so is `LD_PRELOAD` style object which hooks `connect(2)` system call.
+
+randsaddr.so is `LD_PRELOAD` style object which hooks BSD networking syscalls to force an application to use random source address.
 It does so to perform a source address randomization by calling an additional
 `bind(2)` in process of establishing connection, but transparently for caller,
 who didn't use `bind(2)` before (_most_ Unix network clients at the time of writing).
@@ -11,11 +12,15 @@ available and you can randomize them for additional (pseudo)anonymity!
 
 ### Building
 
-It shall be simple. Type make, the result pre-loadable object file is `randsaddr.so`.
-You may want to install it on system into `/usr/lib` directory. Just copy it there:
+It shall be simple. Type `make`, the result pre-loadable object file is `randsaddr.so`.
+
+You may want to install it on system into `/usr/lib` (or `/usr/lib64`, pick one) directory.
+
+Just copy it there:
 
 ```
-cp randsaddr.so /usr/lib
+# su -
+# cp randsaddr.so /usr/lib
 ```
 
 ### Usage
@@ -23,7 +28,7 @@ cp randsaddr.so /usr/lib
 The `randsaddr.so` shared object must be loaded into your application address space:
 
 ```
-LD_PRELOAD=/usr/lib/randsaddr.so your-app args etc.
+$ LD_PRELOAD=/usr/lib/randsaddr.so your-app args etc.
 ```
 
 If no `RANDSADDR` environment variable was passed, it will do nothing but act as a shim object.
@@ -33,7 +38,7 @@ To make it work as intended, `RANDSADDR` environment variable shall be set.
 Syntax for `RANDSADDR` environment variable is:
 
 ```
-RANDSADDR=[[-][socket,connect,send,sendto,sendmsg,eui64]][-E]SUBNET/PREFIX,[SUBNET/PREFIX]
+RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[,SUBNET/PREFIX][,REMA_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX]
 ```
 , where `SUBNET/PREFIX` takes a canonical IP address range syntax, like
 
@@ -46,14 +51,19 @@ for IPv4, or
 ```
 for IPv6 (preferred).
 
-List of syscalls which `randsaddr.so` will control is given as comma separated list: `socket,connect,send,sendto,sendmsg`.
+List of syscalls which `randsaddr.so` will control is given as comma separated list: `socket,bind,connect,send,sendto,sendmsg`.
 If a single entry, e.g. `send` is prefixed with dash, like `-send`, it's usage will be disabled and forced to pass through.
 
-Note that `socket` used with server daemons may produce their misbehavior.
+Note that `socket` used with server daemons may produce their misbehavior!
 
-Additionally, `eui64` will enable, and `-eui64` will disable generation of EUI64 style IPv6 addresses.
+`bind` call is special: it allows remapping of subnets an application tries to bind to transparently, say, to rebind IPv6 "any address" `::/128` to randomly generated address from `2001:db8:ffff:eeee:8:9::/96`, one can specify `::/128=2001:db8:ffff:eeee:8:9::/96`, or to exclude certain subnets from address space with `B` prefix flag (see below).
 
-Each `SUBNET/PREFIX` can also be configured with `E` (eui64 style for this subnet) and `-` (remove subnet from address space).
+Each `SUBNET/PREFIX` can also be configured with it's prefix flags:
+
+* `E`: make address look like eui64 address from specified subnet,
+* `W`: whitelist (exclude) this subnet from broader subnet, say, `2001:db8:1::/48,W2001:db8:1:a::/64` will not produce addresses belonging to `2001:db8:1:a::/64` subnet at all,
+* `B`: with `bind` call, do never allow this subnet to be bindable at all (this is littly different from `W`: it's scope is limited only to `bind` call),
+* `F`: always fill address nibbles (never allow addressess like `2001:db8:0a:0d:fd00:1c::2` with multiple zero four bit groups to be generated)
 
 ### Example
 
@@ -72,26 +82,34 @@ and a Linux box (further examples will assume so):
 IP address on this box. Do so by enabling this feature:
 
 ```
-echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind
-echo 1 > /proc/sys/net/ipv6/ip_nonlocal_bind
+# echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind
+# echo 1 > /proc/sys/net/ipv6/ip_nonlocal_bind
 ```
 
 2. You need to provide Linux kernel with a route that basically says that requested
 address space is there in our control. Assuming example ranges above, do so by enabling this:
 
 ```
-ip -6 route add local 2001:db8:7:4aa0::/60 dev lo
-ip -6 route add local 2001:db8:7:7870::/60 dev lo
-ip -6 route add local 2001:db8:a5:1200::/60 dev lo
-ip -6 route add local 2001:db8:8:9e30::/60 dev lo
+# ip -6 route add local 2001:db8:7:4aa0::/60 dev lo
+# ip -6 route add local 2001:db8:7:7870::/60 dev lo
+# ip -6 route add local 2001:db8:a5:1200::/60 dev lo
+# ip -6 route add local 2001:db8:8:9e30::/60 dev lo
 ```
 
-Above commands shall be run as superuser.
+Above commands shall be run as superuser (hence `#` prompt).
 
-3. Optionally, set up your iptables/nftables to allow these new ranges. This is out of
+3. You probably will need to do this on non-Ethernet (level3) interface. Ethernet will want your router
+to map each address you've generated to MAC address of NIC, which is hardly achievable in a "normal" way.
+A Wireguard, PP(T)P or GRETUN tunnel will work pretty well.
+Most SLAAC setups (for IPv6) or Level2 (IPv4/ARP) will NOT work though.
+
+Keep in mind: your OS must "write" packets to interface,
+not "ask" your router about "am I allowed to send packet as `address` from `hwaddr`?".
+
+4. Optionally, set up your iptables/nftables to allow these new ranges. This is out of
 scope of this document, as your netfilter configurations may vary (or be absent).
 
-4. Now the fun part. Any userspace unprivileged program now can call `bind(2)` to
+5. Now the fun part. Any userspace (unprivileged) program now can call `bind(2)` to
 ranges we defined and kernel will happily allow this, trying to communicate with
 remote on behalf (of course if your netfilter configuration permits packet flow).
 
@@ -127,22 +145,21 @@ Unix offers so many opportunities, you've got the idea I hope.
 
 ### Additional options for RANDSADDR environment variable
 
-There are several prefixes for each subnet range you can use to alter randsaddr behavior:
+Among SUBNET prefixes, these comma separated keywords can be passed:
 
-`E`, like `E2001:db8:7:4aa0::/60`, will mark this subnet range as `EUI64` style. Addresses generated for this
-subnet will take form like `2001:db8:7:4aa0:8a8:7cff:fee3:1a32`. The `ff:fe` in middle of `hostid` is constant
-which, according to IPv6 standard, specifies that `hostid` was simply copied from NIC's MAC address.
-So, `:8a8:7cff:fee3:1a32` part literally says "My MAC address is `08:a8:7c:e3:1a:32`".
+* `-env` will erase contents of RANDSADDR environment variable after parsing it, whilst `env` will keep the contents intact (the default).
+Hence, `-env` will make configuration for current process private, and it will not propagade into it's children.
+It is useful for privacy concerns, like, running Tor or transmission daemon. Note that even if
+`unsetenv(3)` is called after erasing environment variable, most libcs will not get `RANDSADDR` name get removed from environ.
+* `random=FILE` will add random source pointed to by `FILE`. For example, specifying `random=/dev/random` would increase amount
+of true random data, from which addressess will be generated. The random source `/dev/urandom` is always used anyways, further
+files only add random data to it. This option can be specified up to 8 times (enough for most applications).
+* `reuseaddr` will enable `setsockopt(2)` `SO_REUSEADDR` option to specify that this address can be captured right now.
+Most of the times this option is not needed at all. It might be a thing with IPv4.
+* `eui64` will enable `E` prefix option for any IPv6 subnet.
+* `fullbytes` will enable `F` prefix option for any subnet.
 
-No worries tho, these bits are gathered randomly, but this may make an impression on foreign observer that
-they communicate with some real device instead of random stranger. This feature is disabled by default.
-
-`-`, like `-2001:db8:7:4aa0::/60` will exclude this range from address space. Your configuration might look like:
-
-```
-export RANDSADDR="2001:db8:7::/48,-2001:db8:7:4aa0::/60"
-```
-, which says "Use all available `2001:db8:7::/48` space but NOT addresses from `2001:db8:7:4aa0::/60`".
+Each keyword can be preceeded with dash symbol `-` to reverse it's effect.
 
 ### IPv4 compatibility
 
@@ -158,10 +175,17 @@ I guess I need move configuration parsing to init stage which will be done just 
 
 If just preloaded without `RANDSADDR` envvar, randsaddr code shall effectively become no-op, immediately skipping to real `connect`.
 
+### Static library
+
+Among with `randsaddr.so` shared object, an `librandsaddr.a` is created, which contains code suitable for linking statically
+when building programs from source code. Most libcs which can be linked statically will tolerate symbol overrides.
+
+When building, specify additional `LDFLAGS` or `LIBS` to point to this library for linking.
+
 ### Further notes
 
-Some apps (like Google Chrome) may consider `LD_PRELOAD` dangerous, and they will unset it automatically. There is little
-you can do about it other than getting Chromium source, rebuilding it with removal of these anti-feature. I dunno.
+Some apps (like Google Chrome) may consider `LD_PRELOAD` dangerous, and they will unset it automatically, or bail out.
+There is little you can do about it other than getting Chromium source, rebuilding it with removal of these anti-feature.
 You may install proxy (maybe transparent one) which tolerate `LD_PRELOAD` and forward Chrome traffic through it.
 One comes to mind is Tor, with which this hack works flawlessly (at least for me now).
 
