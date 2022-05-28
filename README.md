@@ -37,19 +37,29 @@ To make it work as intended, `RANDSADDR` environment variable shall be set.
 
 Syntax for `RANDSADDR` environment variable is:
 
+_brief syntax_
+
 ```
-RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[,SUBNET/PREFIX][,REMA_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX]
+RANDSADDR=SUBNET/PREFIX[,SUBNET/PREFIX,...]
 ```
-, where `SUBNET/PREFIX` takes a canonical IP address range syntax, like
+
+_full syntax_
+
+```
+RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[,SUBNET/PREFIX][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX]
+```
+, where `SUBNET/PREFIX` takes a canonical CIDR IP address range syntax, like
 
 ```
 192.0.2.0/24
 ```
-for IPv4, or
+for IPv4 (here `192.0.2.0` is SUBNET and `24` is PREFIX), or
 ```
 2001:db8::/32
 ```
-for IPv6 (preferred).
+for IPv6 (here `2001:db8::` is SUBNET and `32` is PREFIX).
+
+randsaddr then will pick a subnet from provided list randomly each time `connect(2)` (or other enabled syscall) is called, and make an random address out of it, then `bind(2)` it to a socket fd.
 
 List of syscalls which `randsaddr.so` will control is given as comma separated list: `socket,bind,connect,send,sendto,sendmsg`.
 If a single entry, e.g. `send` is prefixed with dash, like `-send`, it's usage will be disabled and forced to pass through.
