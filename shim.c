@@ -14,7 +14,11 @@ int socket(int domain, int type, int protocol)
 #ifndef SHARED
 	ras_init();
 #endif
+#ifdef USE_LIBDL
+	res = ras_libc_socket(domain, type, protocol);
+#else
 	res = syscall(SYS_socket, domain, type, protocol);
+#endif
 	if (res == -1) return res;
 	if (randsaddr_config->do_socket) ras_bind_random(res, 0, NO);
 	return res;
@@ -53,7 +57,11 @@ _call:	if (did_bind) {
 		errno = 0;
 		return 0;
 	}
+#ifdef USE_LIBDL
+	return ras_libc_bind(sockfd, paddr, addrlen);
+#else
 	return syscall(SYS_bind, sockfd, paddr, addrlen);
+#endif
 }
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
@@ -62,7 +70,11 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	ras_init();
 #endif
 	if (randsaddr_config->do_connect) ras_bind_random(sockfd, 0, NO);
+#ifdef USE_LIBDL
+	return ras_libc_connect(sockfd, addr, addrlen);
+#else
 	return syscall(SYS_connect, sockfd, addr, addrlen);
+#endif
 }
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
@@ -71,7 +83,11 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 	ras_init();
 #endif
 	if (randsaddr_config->do_send) ras_bind_random(sockfd, 0, NO);
+#ifdef USE_LIBDL
+	return ras_libc_send(sockfd, buf, len, flags);
+#else
 	return syscall(SYS_sendto, sockfd, buf, len, flags, NULL, 0);
+#endif
 }
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
@@ -80,7 +96,11 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct 
 	ras_init();
 #endif
 	if (randsaddr_config->do_sendto) ras_bind_random(sockfd, 0, NO);
+#ifdef USE_LIBDL
+	return ras_libc_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+#else
 	return syscall(SYS_sendto, sockfd, buf, len, flags, dest_addr, addrlen);
+#endif
 }
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
@@ -89,5 +109,9 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 	ras_init();
 #endif
 	if (randsaddr_config->do_sendmsg) ras_bind_random(sockfd, 0, NO);
-	return syscall(SYS_sendmsg, msg, flags);
+#ifdef USE_LIBDL
+	return ras_libc_sendmsg(sockfd, msg, flags);
+#else
+	return syscall(SYS_sendmsg, sockfd, msg, flags);
+#endif
 }

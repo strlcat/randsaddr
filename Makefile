@@ -10,6 +10,13 @@ else
 override CFLAGS+=-O2
 endif
 
+ifeq (,$(USE_SYSCALL))
+override CFLAGS+=-DUSE_LIBDL
+override LDFLAGS+=-ldl
+else
+override CFLAGS+=-DUSE_SYSCALL
+endif
+
 default: $(LIB_OBJS) librandsaddr.a randsaddr.so
 all: $(LIB_OBJS) librandsaddr.a randsaddr.so
 
@@ -24,7 +31,7 @@ librandsaddr.a: $(LIB_OBJS)
 	$(CROSS_COMPILE)ranlib $@
 
 randsaddr.so: $(LDSO_OBJS) librandsaddr.a
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -DSHARED $^ -shared -o $@ librandsaddr.a
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -DSHARED $^ -shared -o $@ librandsaddr.a $(LDFLAGS)
 
 clean:
 	rm -f librandsaddr.a randsaddr.so *.o *.lo

@@ -1,6 +1,20 @@
 #ifndef _RANDSADDR_H
 #define _RANDSADDR_H
 
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#ifndef _BSD_SOURCE
+#define _BSD_SOURCE
+#endif
+#ifndef _XOPEN_SOURCE
+#define _XOPEN_SOURCE 700
+#endif
+
+#ifdef USE_LIBDL
+#define _GNU_SOURCE
+#endif
+
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -18,6 +32,9 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#ifdef USE_LIBDL
+#include <dlfcn.h>
+#endif
 
 #include "randsaddr.h"
 #include "tfdef.h"
@@ -81,6 +98,15 @@ struct s_envcfg {
 };
 
 extern const struct s_envcfg *randsaddr_config;
+
+#ifdef USE_LIBDL
+extern int (*ras_libc_socket)(int, int, int);
+extern int (*ras_libc_bind)(int, const struct sockaddr *, socklen_t);
+extern int (*ras_libc_connect)(int, const struct sockaddr *, socklen_t);
+extern ssize_t (*ras_libc_send)(int, const void *, size_t, int);
+extern ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
+extern ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
+#endif
 
 extern ras_yesno ras_mkrandaddr6(void *, const void *, size_t, ras_yesno);
 extern void ras_mkeui64addr(void *, const void *);

@@ -12,6 +12,15 @@ static size_t naddrs4;
 static const struct s_addrcfg *caddrs6 = &addrs6[0];
 static const struct s_addrcfg *caddrs4 = &addrs4[0];
 
+#ifdef USE_LIBDL
+int (*ras_libc_socket)(int, int, int);
+int (*ras_libc_bind)(int, const struct sockaddr *, socklen_t);
+int (*ras_libc_connect)(int, const struct sockaddr *, socklen_t);
+ssize_t (*ras_libc_send)(int, const void *, size_t, int);
+ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
+ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
+#endif
+
 static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 {
 	size_t x;
@@ -49,6 +58,16 @@ static void do_init(void)
 	static char scfg[RAS_CFGSZ];
 	char *s, *d, *t, *p;
 	ras_atype type;
+
+#ifdef USE_LIBDL
+	/* in case of bad libdl implementation, just crash when attempt to call these will occur, clearly revealing culprit. */
+	ras_libc_socket = dlsym(RTLD_NEXT, "socket");
+	ras_libc_bind = dlsym(RTLD_NEXT, "bind");
+	ras_libc_connect = dlsym(RTLD_NEXT, "connect");
+	ras_libc_send = dlsym(RTLD_NEXT, "send");
+	ras_libc_sendto = dlsym(RTLD_NEXT, "sendto");
+	ras_libc_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
+#endif
 
 	if (randsaddr.initdone) return;
 	if (randsaddr.disabled) return;
@@ -314,7 +333,11 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
+#ifdef USE_LIBDL
+		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+#else
 		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+#endif
 		else goto _try4;
 	}
 
@@ -343,7 +366,11 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
+#ifdef USE_LIBDL
+		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+#else
 		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
+#endif
 		else return NO;
 	}
 
