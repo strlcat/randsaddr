@@ -2,56 +2,59 @@
 #include "tfdef.h"
 #include "tfe.h"
 
-void tfnge_init_iv(struct tfnge_stream *tfe, const void *key, const void *iv)
+void tfe_init_iv(struct tfe_stream *tfe, const void *key, const void *iv)
 {
-	memset(tfe, 0, sizeof(struct tfnge_stream));
-	memcpy(tfe->key, key, TFNG_KEY_SIZE);
-	if (iv) memcpy(tfe->iv, iv, TFNG_BLOCK_SIZE);
-	tfe->carry_bytes = 0;
+	memset(tfe, 0, sizeof(struct tfe_stream));
+	memcpy(tfe->key, key, TF_KEY_SIZE);
+	if (iv) memcpy(tfe->iv, iv, TF_BLOCK_SIZE);
+	tfe->tidx = 0;
 }
 
-void tfnge_init(struct tfnge_stream *tfe, const void *key)
+void tfe_init(struct tfe_stream *tfe, const void *key)
 {
-	tfnge_init_iv(tfe, key, NULL);
+	tfe_init_iv(tfe, key, NULL);
 }
 
-void tfnge_emit(void *dst, size_t szdst, struct tfnge_stream *tfe)
+void tfe_emit(void *dst, size_t szdst, struct tfe_stream *tfe)
 {
-	TFNG_BYTE_TYPE *udst = dst;
-	size_t sz = szdst;
+	TF_BYTE_TYPE *udst = dst;
+	size_t sz = szdst, trem;
 
 	if (!dst && szdst == 0) {
-		memset(tfe, 0, sizeof(struct tfnge_stream));
+		memset(tfe, 0, sizeof(struct tfe_stream));
 		return;
 	}
 
-	if (tfe->carry_bytes > 0) {
-		if (tfe->carry_bytes > szdst) {
-			memcpy(udst, tfe->carry_block, szdst);
-			memmove(tfe->carry_block, tfe->carry_block+szdst, tfe->carry_bytes-szdst);
-			tfe->carry_bytes -= szdst;
+	if (tfe->tidx > 0) {
+		trem = TF_BLOCK_SIZE-tfe->tidx;
+
+		if (szdst <= trem) {
+			memcpy(udst, &tfe->tmp[tfe->tidx], szdst);
+			tfe->tidx += szdst;
+			if (tfe->tidx >= TF_BLOCK_SIZE) tfe->tidx = 0;
 			return;
 		}
 
-		memcpy(udst, tfe->carry_block, tfe->carry_bytes);
-		udst += tfe->carry_bytes;
-		sz -= tfe->carry_bytes;
-		tfe->carry_bytes = 0;
+		memcpy(udst, &tfe->tmp[tfe->tidx], trem);
+		udst += trem;
+		sz -= trem;
+		tfe->tidx = 0;
 	}
 
-	if (sz >= TFNG_BLOCK_SIZE) {
+	if (sz >= TF_BLOCK_SIZE) {
 		do {
-			tfng_encrypt_rawblk(tfe->iv, tfe->iv, tfe->key);
-			memcpy(udst, tfe->iv, TFNG_BLOCK_SIZE);
-			udst += TFNG_BLOCK_SIZE;
-		} while ((sz -= TFNG_BLOCK_SIZE) >= TFNG_BLOCK_SIZE);
+			tf_encrypt_rawblk(tfe->iv, tfe->iv, tfe->key);
+			memcpy(udst, tfe->iv, TF_BLOCK_SIZE);
+			data_to_words(udst, TF_BLOCK_SIZE);
+			udst += TF_BLOCK_SIZE;
+		} while ((sz -= TF_BLOCK_SIZE) >= TF_BLOCK_SIZE);
 	}
 
 	if (sz) {
-		tfng_encrypt_rawblk(tfe->iv, tfe->iv, tfe->key);
-		memcpy(udst, tfe->iv, sz);
-		udst = (TFNG_BYTE_TYPE *)tfe->iv;
-		tfe->carry_bytes = TFNG_BLOCK_SIZE-sz;
-		memcpy(tfe->carry_block, udst+sz, tfe->carry_bytes);
+		tf_encrypt_rawblk(tfe->iv, tfe->iv, tfe->key);
+		memcpy(tfe->tmp, tfe->iv, TF_BLOCK_SIZE);
+		data_to_words(tfe->tmp, TF_BLOCK_SIZE);
+		memcpy(udst, tfe->tmp, sz);
+		tfe->tidx = sz;
 	}
 }

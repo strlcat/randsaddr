@@ -2,93 +2,93 @@
 #include "tfe.h"
 #include "tfprng.h"
 
-struct tfng_prng_data {
-	struct tfnge_stream tfe;
+struct tf_prng_data {
+	struct tfe_stream tfe;
 	short init;
 };
 
-struct tfng_prng_data tfng_prng_sdata;
+struct tf_prng_data tf_prng_sdata;
 
-size_t tfng_prng_datasize(void)
+size_t tf_prng_datasize(void)
 {
-	return sizeof(struct tfng_prng_data);
+	return sizeof(struct tf_prng_data);
 }
 
-void tfng_prng_seedkey_r(void *sdata, const void *skey)
+void tf_prng_seedkey_r(void *sdata, const void *skey)
 {
-	TFNG_UNIT_TYPE k[TFNG_NR_KEY_UNITS];
-	struct tfng_prng_data *rprng = sdata;
+	TF_UNIT_TYPE k[TF_NR_KEY_UNITS];
+	struct tf_prng_data *rprng = (struct tf_prng_data *)sdata;
 
-	memset(rprng, 0, tfng_prng_datasize());
+	memset(rprng, 0, tf_prng_datasize());
 	if (!skey) return;
 
-	memcpy(k, skey, TFNG_KEY_SIZE);
-	tfnge_init(&rprng->tfe, k);
+	memcpy(k, skey, TF_KEY_SIZE);
+	tfe_init(&rprng->tfe, k);
 	rprng->init = 1;
 
-	memset(k, 0, TFNG_KEY_SIZE);
+	memset(k, 0, TF_KEY_SIZE);
 }
 
-void tfng_prng_seedkey(const void *skey)
+void tf_prng_seedkey(const void *skey)
 {
-	tfng_prng_seedkey_r(&tfng_prng_sdata, skey);
+	tf_prng_seedkey_r(&tf_prng_sdata, skey);
 }
 
-void tfng_prng_genrandom_r(void *sdata, void *result, size_t need)
+void tf_prng_genrandom_r(void *sdata, void *result, size_t need)
 {
-	struct tfng_prng_data *rprng = sdata;
+	struct tf_prng_data *rprng = (struct tf_prng_data *)sdata;
 	memset(result, 0, need);
-	tfnge_emit(result, need, &rprng->tfe);
+	tfe_emit(result, need, &rprng->tfe);
 }
 
-void tfng_prng_genrandom(void *result, size_t need)
+void tf_prng_genrandom(void *result, size_t need)
 {
-	tfng_prng_genrandom_r(&tfng_prng_sdata, result, need);
+	tf_prng_genrandom_r(&tf_prng_sdata, result, need);
 }
 
-void tfng_prng_seed_r(void *sdata, TFNG_UNIT_TYPE seed)
+void tf_prng_seed_r(void *sdata, TF_UNIT_TYPE seed)
 {
-	TFNG_UNIT_TYPE k[TFNG_NR_KEY_UNITS];
-	struct tfng_prng_data *rprng = sdata;
+	TF_UNIT_TYPE k[TF_NR_KEY_UNITS];
+	struct tf_prng_data *rprng = (struct tf_prng_data *)sdata;
 	size_t x;
 
-	memset(rprng, 0, tfng_prng_datasize());
-	for (x = 0; x < TFNG_NR_KEY_UNITS; x++) k[x] = seed;
-	tfnge_init(&rprng->tfe, k);
+	memset(rprng, 0, tf_prng_datasize());
+	for (x = 0; x < TF_NR_KEY_UNITS; x++) k[x] = seed;
+	tfe_init(&rprng->tfe, k);
 	rprng->init = 1;
 
-	memset(k, 0, TFNG_KEY_SIZE);
+	memset(k, 0, TF_KEY_SIZE);
 }
 
-void tfng_prng_seed(TFNG_UNIT_TYPE seed)
+void tf_prng_seed(TF_UNIT_TYPE seed)
 {
-	tfng_prng_seed_r(&tfng_prng_sdata, seed);
+	tf_prng_seed_r(&tf_prng_sdata, seed);
 }
 
-TFNG_UNIT_TYPE tfng_prng_random_r(void *sdata)
+TF_UNIT_TYPE tf_prng_random_r(void *sdata)
 {
-	struct tfng_prng_data *rprng = sdata;
-	TFNG_UNIT_TYPE r;
+	struct tf_prng_data *rprng = (struct tf_prng_data *)sdata;
+	TF_UNIT_TYPE r;
 
 	if (!rprng->init) return 0;
 
-	tfnge_emit(&r, sizeof(r), &rprng->tfe);
+	tfe_emit(&r, sizeof(r), &rprng->tfe);
 	return r;
 }
 
-TFNG_UNIT_TYPE tfng_prng_random(void)
+TF_UNIT_TYPE tf_prng_random(void)
 {
-	return tfng_prng_random_r(&tfng_prng_sdata);
+	return tf_prng_random_r(&tf_prng_sdata);
 }
 
-TFNG_UNIT_TYPE tfng_prng_range_r(void *sdata, TFNG_UNIT_TYPE s, TFNG_UNIT_TYPE d)
+TF_UNIT_TYPE tf_prng_range_r(void *sdata, TF_UNIT_TYPE s, TF_UNIT_TYPE d)
 {
-	TFNG_UNIT_TYPE c = tfng_prng_random_r(sdata);
+	TF_UNIT_TYPE c = tf_prng_random_r(sdata);
 	if (d <= s) return s;
-	return TFNG_PRNG_RANGE(c, TFNG_UNIT_TYPE, s, d);
+	return TF_PRNG_RANGE(c, TF_UNIT_TYPE, s, d);
 }
 
-TFNG_UNIT_TYPE tfng_prng_range(TFNG_UNIT_TYPE s, TFNG_UNIT_TYPE d)
+TF_UNIT_TYPE tf_prng_range(TF_UNIT_TYPE s, TF_UNIT_TYPE d)
 {
-	return tfng_prng_range_r(&tfng_prng_sdata, s, d);
+	return tf_prng_range_r(&tf_prng_sdata, s, d);
 }
