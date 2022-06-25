@@ -1,3 +1,8 @@
+/*
+ * This code was written by Rys Andrey. It is now in public domain.
+ * Original source to which it belongs: randsaddr repository.
+ */
+
 #include <stddef.h>
 #include <string.h>
 
