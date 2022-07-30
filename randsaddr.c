@@ -395,7 +395,7 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		}
 		/* This call shall ignore any errors since it's just hint anyway. */
 #ifdef USE_LIBDL
-		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
 #else
 		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
 #endif
