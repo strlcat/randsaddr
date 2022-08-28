@@ -85,6 +85,7 @@ static void do_init(void)
 {
 	static char scfg[RAS_CFGSZ];
 	char *s, *d, *t, *p;
+	char *nmap, *weight;
 	ras_atype type;
 
 #ifdef USE_LIBDL
@@ -207,9 +208,14 @@ _done:		randsaddr.initdone = YES;
 			continue;
 		}
 
+		nmap = weight = NULL;
 		p = strchr(s, '=');
-		if (p) {
-			*p = 0; p++;
+		if (p) { /* netmap */
+			*p = 0; p++; nmap = p;
+		}
+		p = strchr(nmap ? nmap : s, '#');
+		if (p) { /* weight */
+			*p = 0; p++; weight = p;
 		}
 
 		type = ras_addr_type(s);
@@ -224,14 +230,20 @@ _done:		randsaddr.initdone = YES;
 				addrs6[naddrs6].atype = RAT_NONE;
 				continue;
 			}
-			if (p) {
+			if (nmap) {
 				addrs6[naddrs6].remap = YES;
-				addrs6[naddrs6].d_pfx = ras_saddr_prefix(p);
-				if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].da.ipa, p) != YES) {
+				addrs6[naddrs6].d_pfx = ras_saddr_prefix(nmap);
+				if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].da.ipa, nmap) != YES) {
 					addrs6[naddrs6].atype = RAT_NONE;
 					continue;
 				}
 			}
+			if (weight) {
+				addrs6[naddrs6].weight = (size_t)strtoul(weight, &p, 10);
+				if (!ras_str_empty(p)) addrs6[naddrs6].weight = NOSIZE;
+				else randsaddr.totalweight += addrs6[naddrs6].weight;
+			}
+			else addrs6[naddrs6].weight = NOSIZE;
 			naddrs6++;
 		}
 		else if (type == RAT_IPV4) {
@@ -244,14 +256,20 @@ _done:		randsaddr.initdone = YES;
 				addrs4[naddrs4].atype = RAT_NONE;
 				continue;
 			}
-			if (p) {
+			if (nmap) {
 				addrs4[naddrs4].remap = YES;
-				addrs4[naddrs4].d_pfx = ras_saddr_prefix(p);
-				if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].da.ipa, p) != YES) {
+				addrs4[naddrs4].d_pfx = ras_saddr_prefix(nmap);
+				if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].da.ipa, nmap) != YES) {
 					addrs4[naddrs4].atype = RAT_NONE;
 					continue;
 				}
 			}
+			if (weight) {
+				addrs4[naddrs4].weight = (size_t)strtoul(weight, &p, 10);
+				if (!ras_str_empty(p)) addrs4[naddrs4].weight = NOSIZE;
+				else randsaddr.totalweight += addrs4[naddrs4].weight;
+			}
+			else addrs4[naddrs4].weight = NOSIZE;
 			naddrs4++;
 		}
 	}
@@ -340,6 +358,10 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 	sap = &caddrs6[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
 	if (sap->remap == YES && from_bind == YES) return NO;
+	if (sap->weight != NOSIZE) { /* bias white randomness by weights distribution */
+		x = ras_prng_index(0, randsaddr_config->totalweight);
+		if (x > sap->weight) goto _na6;
+	}
 	if (sap->atype == RAT_IPV6) { /* fail of you to provide valid cfg */
 		memset(&sa, 0, sizeof(sa));
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
@@ -374,6 +396,10 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 	sap = &caddrs4[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
 	if (sap->remap == YES && from_bind == YES) return NO;
+	if (sap->weight != NOSIZE) { /* bias white randomness by weights distribution */
+		x = ras_prng_index(0, (size_t)randsaddr_config->totalweight);
+		if (x > sap->weight) goto _na4;
+	}
 	if (sap->atype == RAT_IPV4) {
 		memset(&sa, 0, sizeof(sa));
 		if (!ras_mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
