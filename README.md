@@ -46,7 +46,7 @@ RANDSADDR=SUBNET/PREFIX[,SUBNET/PREFIX,...]
 _full syntax_
 
 ```
-RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[,SUBNET/PREFIX][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX]
+RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[#WEIGHT][,SUBNET/PREFIX[#WEIGHT]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT]]
 ```
 , where `SUBNET/PREFIX` takes a canonical CIDR IP address range syntax, like
 
@@ -74,6 +74,30 @@ Each `SUBNET/PREFIX` can also be configured with it's prefix flags:
 * `W`: whitelist (exclude) this subnet from broader subnet, say, `2001:db8:1::/48,W2001:db8:1:a::/64` will not produce addresses belonging to `2001:db8:1:a::/64` subnet at all,
 * `B`: with `bind` call, do never allow this subnet to be bindable at all (this is littly different from `W`: it's scope is limited only to `bind` call),
 * `F`: always fill address nibbles (never allow addressess like `2001:db8:0a:0d:fd00:1c::2` with multiple zero four bit groups to be generated)
+
+### Subnet weights: bias random distribution among separate subnets
+
+randsaddr now carries another tool to bias white noise random distribution between separate subnets.
+Each SUBNET like `127.0.0.0/8` can be specified in extended form, like `127.0.0.0/8#10`.
+Here, `#10` part is any nonzero unsigned integer capable of storing an 32 bit value to your liking.
+For this mechanism to start working, you have to define weights for all your specified subnets.
+The higher the number the higher chance of subnet holding it appear more rather than anothers.
+
+Say, you want `127.0.0.0/16` to appear 80% often and `127.5.0.0/16` shall lurk around only on remaining 20%.
+
+Here, you write the rule as: `127.0.0.0/16#80,127.5.0.0/16#20`.
+
+The bigger weight number is the more precise selection with bias will be.
+Anyway, the sum of all weights is calculated initially and against that sum
+all comparisons are made. From the above example, total sum will be 100,
+and if generated number doesn't match, it will be discarded.
+
+This number of choice is restricted only by platform specific `size_t` holding capability.
+Usually, it will be 32 bits long, or 4,2MM of size.
+
+Warning: untagged subnets will interfere in this process because they are
+bypass weight check mechanism. When configuring, ensure that all your subnets have
+weights assigned if you willing to bias the choice done by randsaddr.
 
 ### Example
 

@@ -105,6 +105,7 @@ struct s_addrcfg {
 	ras_yesno remap;
 	size_t d_pfx;
 	union s_addr da;
+	size_t weight;
 };
 
 struct s_envcfg {
@@ -121,6 +122,8 @@ struct s_envcfg {
 	ras_yesno do_eui64;
 	ras_yesno do_fullbytes;
 	ras_yesno do_clear_env;
+
+	size_t totalweight;
 
 	char *randsources[RAS_NRANDPATHS];
 };
