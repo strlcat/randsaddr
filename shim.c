@@ -73,7 +73,10 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	ras_init();
 #endif
 	if (af_valid(paddr->sa_family) != YES) goto _call;
-	if (randsaddr_config->do_bind == NO) goto _call;
+	if (randsaddr_config->do_bind == NO) {
+		if (randsaddr_config->do_socket) return 0;
+		goto _call;
+	}
 
 	x = (size_t)addrlen;
 	if (addr->sa_family == AF_INET6) memcpy(&sa.v6a, addr, x > sizeof(sa.v6a) ? sizeof(sa.v6a) : x);
