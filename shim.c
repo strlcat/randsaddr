@@ -28,6 +28,15 @@
 
 #include "randsaddr.h"
 
+static inline ras_yesno af_valid(int af)
+{
+	switch (af) {
+		case AF_INET:
+		case AF_INET6:	return YES;
+	}
+	return NO;
+}
+
 #ifdef SHARED
 void __attribute__((constructor)) ras_shim_init(void)
 {
@@ -48,6 +57,7 @@ int socket(int domain, int type, int protocol)
 	res = syscall(SYS_socket, domain, type, protocol);
 #endif
 	if (res == -1) return res;
+	if (af_valid(domain) != YES) return res;
 	if (randsaddr_config->do_socket) ras_bind_random(res, 0, NO);
 	return res;
 }
@@ -62,6 +72,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 #ifndef SHARED
 	ras_init();
 #endif
+	if (af_valid(paddr->sa_family) != YES) goto _call;
 	if (randsaddr_config->do_bind == NO) goto _call;
 
 	x = (size_t)addrlen;
@@ -97,7 +108,10 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 #ifndef SHARED
 	ras_init();
 #endif
-	if (randsaddr_config->do_connect) ras_bind_random(sockfd, 0, NO);
+	if (randsaddr_config->do_connect) {
+		/* even if connecting to peer, destination addr->sa_family must match source one, right? */
+		if (af_valid(addr->sa_family)) ras_bind_random(sockfd, 0, NO);
+	}
 #ifdef USE_LIBDL
 	return ras_libc_connect(sockfd, addr, addrlen);
 #else
