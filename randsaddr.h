@@ -59,6 +59,7 @@
 #include <sys/syscall.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #ifdef USE_LIBDL
 #include <dlfcn.h>
@@ -119,6 +120,9 @@ struct s_envcfg {
 	ras_yesno do_sendto;
 	ras_yesno do_sendmsg;
 	ras_yesno do_reuseaddr;
+#ifdef IP_FREEBIND
+	ras_yesno do_freebind;
+#endif
 	ras_yesno do_eui64;
 	ras_yesno do_fullbytes;
 	ras_yesno do_clear_env;
