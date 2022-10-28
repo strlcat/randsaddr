@@ -191,6 +191,16 @@ _done:		randsaddr.initdone = YES;
 			randsaddr.do_reuseaddr = NO;
 			continue;
 		}
+#ifdef IP_FREEBIND
+		else if (!strcasecmp(s, "freebind")) {
+			randsaddr.do_freebind = YES;
+			continue;
+		}
+		else if (!strcasecmp(s, "-freebind")) {
+			randsaddr.do_freebind = NO;
+			continue;
+		}
+#endif
 		else if (!strcasecmp(s, "fullbytes")) {
 			randsaddr.do_fullbytes = YES;
 			continue;
@@ -381,7 +391,16 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		if (randsaddr_config->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+#ifdef SO_REUSEPORT
+			setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
+#endif
 		}
+#ifdef IP_FREEBIND
+		if (randsaddr_config->do_freebind) {
+			int v = 1;
+			setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
+		}
+#endif
 		/* This call shall ignore any errors since it's just hint anyway. */
 #ifdef USE_LIBDL
 		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
@@ -418,7 +437,16 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		if (randsaddr_config->do_reuseaddr) {
 			int v = 1;
 			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+#ifdef SO_REUSEPORT
+			setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
+#endif
 		}
+#ifdef IP_FREEBIND
+		if (randsaddr_config->do_freebind) {
+			int v = 1;
+			setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
+		}
+#endif
 		/* This call shall ignore any errors since it's just hint anyway. */
 #ifdef USE_LIBDL
 		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
