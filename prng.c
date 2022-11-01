@@ -51,18 +51,32 @@ static ras_yesno do_prng_init(void)
 
 	memset(key, 0, sizeof(key));
 	for (x = 0; randsaddr_config->randsources[x] && x < RAS_NRANDPATHS; x++) {
+#ifdef SYS_getrandom
+		if (x > 0) goto _fdf;
+		if (syscall(SYS_getrandom, tmp, sizeof(tmp), 0) < sizeof(tmp)) {
+			errno = ESPIPE;
+			return NO;
+		}
+		else goto _fdfi;
+_fdf:
+#endif
 		fd = open(randsaddr_config->randsources[x], O_RDONLY);
 		if (fd == -1) {
 			if (x == 0 && randsaddr_config->randsources[1]) continue;
 			return NO;
 		}
 		if (read(fd, tmp, sizeof(tmp)) < sizeof(tmp)) {
-			close(fd);
-			errno = ESPIPE;
-			return NO;
+			if (x == 0) {
+				close(fd);
+				errno = ESPIPE;
+				return NO;
+			}
 		}
-		xor_block(key, tmp, sizeof(key));
 		close(fd);
+#ifdef SYS_getrandom
+_fdfi:
+#endif
+		xor_block(key, tmp, sizeof(key));
 	}
 	tfng_prng_seedkey(key);
 
