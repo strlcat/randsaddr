@@ -31,7 +31,7 @@ librandsaddr.a: $(LIB_OBJS)
 	$(CROSS_COMPILE)ranlib $@
 
 randsaddr.so: $(LDSO_OBJS) librandsaddr.a
-	$(CROSS_COMPILE)$(CC) $(CFLAGS) -DSHARED $^ -shared -o $@ librandsaddr.a $(LDFLAGS)
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) -DSHARED $^ -shared -o $@ librandsaddr.a $(LDFLAGS) -lpthread
 
 clean:
 	rm -f librandsaddr.a randsaddr.so *.o *.lo
