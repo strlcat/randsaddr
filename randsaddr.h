@@ -72,9 +72,11 @@
 
 enum { NO, YES };
 enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
+enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR };
 
 typedef _Bool ras_yesno;
 typedef short ras_atype;
+typedef short ras_bitop;
 
 #define NOSIZE ((size_t)-1)
 
@@ -85,7 +87,8 @@ typedef short ras_atype;
 
 #define RAS_ADDRLEN INET6_ADDRSTRLEN+4
 #define RAS_NADDRS 256
-#define RAS_NRANDPATHS 8
+#define RAS_AMODES 4
+#define RAS_NRANDPATHS 4
 
 union s_addr {
 	uint8_t ipa[16];
@@ -93,6 +96,11 @@ union s_addr {
 	uint8_t v6b[16];
 	struct sockaddr_in v4a;
 	uint8_t v4b[4];
+};
+
+struct s_addrmod {
+	ras_bitop aop;
+	union s_addr sa;
 };
 
 struct s_addrcfg {
@@ -107,6 +115,8 @@ struct s_addrcfg {
 	size_t d_pfx;
 	union s_addr da;
 	size_t weight;
+	struct s_addrmod adm[RAS_AMODES];
+	size_t nadm;
 };
 
 struct s_envcfg {
@@ -150,6 +160,11 @@ extern ras_yesno ras_mkrandaddr4(void *, const void *, size_t, ras_yesno);
 extern void ras_prng_init(void);
 extern uint8_t ras_prng_getrandc(ras_yesno);
 extern size_t ras_prng_index(size_t, size_t);
+
+extern void ras_bit_block(void *, const void *, size_t, ras_bitop);
+extern void ras_and_block(void *, const void *, size_t);
+extern void ras_or_block(void *, const void *, size_t);
+extern void ras_xor_block(void *, const void *, size_t);
 
 extern ras_atype ras_addr_type(const char *);
 extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);

@@ -46,7 +46,7 @@ RANDSADDR=SUBNET/PREFIX[,SUBNET/PREFIX,...]
 _full syntax_
 
 ```
-RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[#WEIGHT][,SUBNET/PREFIX[#WEIGHT]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT]]
+RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[#WEIGHT][%ADDRMOD][,SUBNET/PREFIX[#WEIGHT][%ADDRMOD]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT][%ADDRMOD]]
 ```
 , where `SUBNET/PREFIX` takes a canonical CIDR IP address range syntax, like
 
@@ -99,7 +99,22 @@ Warning: untagged subnets will interfere in this process because they are
 bypass weight check mechanism. When configuring, ensure that all your subnets have
 weights assigned if you willing to bias the choice done by randsaddr.
 
-### Example
+### Address modifiers
+
+Address modifier, or `ADDRMOD`, is optional rule specifying how result address must be mangled. Each `ADDRMOD` starts with `%`, followed
+by operator. There are currently three operators that can be used to mangle the result freely, and unlike traditional `eui64`,
+they can freely manipulate every bit inside address:
+
+* `&` performs logical AND of result with specified user mask,
+* `|` performs logical OR of result with specified user mask,
+* `^` performs XOR of result with specified user mask.
+
+As an example, one can trim resulting IPv6 address just to random "start" address: `2001:db8:1::/48%&ffff:ffff:ffff:ffff::%|::1`, result
+will keep random bits from 48th to 63th but strip everything from 64th, and finally will add `1` to end with `%|::1`.
+
+_The syntax is ugly, I know._
+
+### Examples
 
 Suppose you have four `/60`'s available to play with,
 (each allows 16 `/64` subnets, total 64, distributed),
