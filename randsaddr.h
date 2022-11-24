@@ -69,6 +69,7 @@
 #include "tfdef.h"
 #include "tfe.h"
 #include "tfprng.h"
+#include "xmalloc.h"
 
 enum { NO, YES };
 enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
@@ -86,9 +87,6 @@ typedef short ras_bitop;
 #define RAS_CFGSZ 10240
 
 #define RAS_ADDRLEN INET6_ADDRSTRLEN+4
-#define RAS_NADDRS 256
-#define RAS_AMODES 4
-#define RAS_NRANDPATHS 4
 
 union s_addr {
 	uint8_t ipa[16];
@@ -115,7 +113,7 @@ struct s_addrcfg {
 	size_t d_pfx;
 	union s_addr da;
 	size_t weight;
-	struct s_addrmod adm[RAS_AMODES];
+	struct s_addrmod *sadm;
 	size_t nadm;
 };
 
@@ -139,7 +137,7 @@ struct s_envcfg {
 
 	size_t totalweight;
 
-	char *randsources[RAS_NRANDPATHS];
+	char *randsources[8];
 };
 
 extern const struct s_envcfg *randsaddr_config;
@@ -152,6 +150,8 @@ extern ssize_t (*ras_libc_send)(int, const void *, size_t, int);
 extern ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 extern ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
 #endif
+
+extern void ras_fatal(const char *fmt, ...);
 
 extern ras_yesno ras_mkrandaddr6(void *, const void *, size_t, ras_yesno);
 extern void ras_mkeui64addr(void *, const void *);

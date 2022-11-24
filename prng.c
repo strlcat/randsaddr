@@ -38,7 +38,7 @@ static ras_yesno do_prng_init(void)
 	if (initdone) return YES;
 
 	memset(key, 0, sizeof(key));
-	for (x = 0; randsaddr_config->randsources[x] && x < RAS_NRANDPATHS; x++) {
+	for (x = 0; randsaddr_config->randsources[x] && x < STAT_ARRAY_SZ(randsaddr_config->randsources); x++) {
 #ifdef SYS_getrandom
 		if (x > 0) goto _fdf;
 		if (syscall(SYS_getrandom, tmp, sizeof(tmp), 0) < sizeof(tmp)) {
@@ -74,10 +74,7 @@ _fdfi:
 
 void ras_prng_init(void)
 {
-	if (do_prng_init() != YES) {
-		fprintf(stderr, "randsaddr: prng init failed: %s\n", strerror(errno));
-		exit(errno);
-	}
+	if (do_prng_init() != YES) ras_fatal("prng init failed: %s", strerror(errno));
 }
 
 /*

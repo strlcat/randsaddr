@@ -31,14 +31,14 @@
 static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, .randsources[0] = "/dev/urandom", };
 const struct s_envcfg *randsaddr_config = &randsaddr;
 
-static struct s_addrcfg addrs6[RAS_NADDRS];
+static struct s_addrcfg *addrs6;
 static size_t naddrs6;
-static struct s_addrcfg addrs4[RAS_NADDRS];
+static struct s_addrcfg *addrs4;
 static size_t naddrs4;
 
 /* We shall not write to these outside of init function. */
-static const struct s_addrcfg *caddrs6 = &addrs6[0];
-static const struct s_addrcfg *caddrs4 = &addrs4[0];
+static const struct s_addrcfg *caddrs6;
+static const struct s_addrcfg *caddrs4;
 
 #ifdef USE_LIBDL
 int (*ras_libc_socket)(int, int, int);
@@ -48,6 +48,35 @@ ssize_t (*ras_libc_send)(int, const void *, size_t, int);
 ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
 #endif
+
+void ras_fatal(const char *fmt, ...)
+{
+	va_list ap;
+
+	fputs("randsaddr: ", stderr);
+	va_start(ap, fmt);
+	vfprintf(stderr, fmt, ap);
+	va_end(ap);
+	fputc('\n', stderr);
+	abort();
+}
+
+void ras_malloc_ub(const void *badptr)
+{
+	ras_fatal("xmalloc failed at %p", badptr);
+}
+
+int ras_malloc_oom(int fail, ras_malloc_oom_caller where)
+{
+	if (!fail) return YES;
+	ras_fatal("Out of Memory");
+	return NO;
+}
+
+void ras_malloc_error(ras_malloc_oom_caller where)
+{
+	ras_fatal("Out of Memory");
+}
 
 static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 {
@@ -93,16 +122,19 @@ _again:	p = strchr(s, '%');
 		*p = 0; p++; dc = *p; p++; d = p;
 	}
 
-	if (ras_stobaddr(type, addrs->adm[addrs->nadm].sa.ipa, s) == YES) {
+	addrs->sadm = ras_realloc(addrs->sadm, (addrs->nadm + 1) * sizeof(struct s_addrmod));
+	if (ras_stobaddr(type, addrs->sadm[addrs->nadm].sa.ipa, s) == YES) {
 		switch (sc) {
-			case '&': addrs->adm[addrs->nadm].aop = RBO_AND; break;
-			case '|': addrs->adm[addrs->nadm].aop = RBO_OR; break;
-			case '^': addrs->adm[addrs->nadm].aop = RBO_XOR; break;
+			case '&':
+			case 'N': addrs->sadm[addrs->nadm].aop = RBO_AND; break;
+			case '|':
+			case 'O': addrs->sadm[addrs->nadm].aop = RBO_OR; break;
+			case '^':
+			case 'X': addrs->sadm[addrs->nadm].aop = RBO_XOR; break;
 		}
 	}
-	else addrs->adm[addrs->nadm].aop = RBO_NONE;
+	else addrs->sadm[addrs->nadm].aop = RBO_NONE;
 	addrs->nadm++;
-	if (addrs->nadm >= RAS_AMODES) return;
 
 	s = d; sc = dc;
 	if (p) goto _again;
@@ -110,7 +142,7 @@ _again:	p = strchr(s, '%');
 
 static void do_init(void)
 {
-	static char scfg[RAS_CFGSZ];
+	static char *scfg;
 	char *s, *d, *t, *p;
 	char *nmap, *weight, *addrop;
 	ras_atype type;
@@ -130,14 +162,13 @@ static void do_init(void)
 
 	s = getenv("RANDSADDR");
 	if (!s) {
-_disable:	randsaddr.disabled = YES;
+		randsaddr.disabled = YES;
 _done:		randsaddr.initdone = YES;
-		memset(scfg, 0, sizeof(scfg));
 		return;
 	}
 	else {
-		if (ras_strlcpy(scfg, s, sizeof(scfg)) >= sizeof(scfg)) goto _disable;
-		ras_strlxstr(scfg, sizeof(scfg), "\r\n", "\n");
+		scfg = ras_strdup(s);
+		ras_strlxstr(scfg, ras_szalloc(scfg), "\r\n", "\n");
 	}
 
 	s = d = scfg; t = NULL;
@@ -149,8 +180,8 @@ _done:		randsaddr.initdone = YES;
 		if (!strncasecmp(s, "random=", CSTR_SZ("random="))) {
 			size_t x;
 
-			for (x = 0; randsaddr.randsources[x] && x < RAS_NRANDPATHS; x++);
-			if (x >= RAS_NRANDPATHS) continue;
+			for (x = 0; randsaddr.randsources[x] && x < STAT_ARRAY_SZ(randsaddr_config->randsources); x++);
+			if (x >= STAT_ARRAY_SZ(randsaddr_config->randsources)) continue;
 			randsaddr.randsources[x] = s+CSTR_SZ("random=");
 			continue;
 		}
@@ -261,7 +292,7 @@ _done:		randsaddr.initdone = YES;
 
 		type = ras_addr_type(s);
 		if (type == RAT_IPV6) {
-			if (naddrs6 >= RAS_NADDRS) continue;
+			addrs6 = ras_realloc(addrs6, (naddrs6 + 1) * sizeof(struct s_addrcfg));
 			addrs6[naddrs6].atype = type;
 			addrs6[naddrs6].eui64 = randsaddr_config->do_eui64;
 			addrs6[naddrs6].fullbytes = randsaddr_config->do_fullbytes;
@@ -289,7 +320,7 @@ _done:		randsaddr.initdone = YES;
 			naddrs6++;
 		}
 		else if (type == RAT_IPV4) {
-			if (naddrs4 >= RAS_NADDRS) continue;
+			addrs4 = ras_realloc(addrs4, (naddrs4 + 1) * sizeof(struct s_addrcfg));
 			addrs4[naddrs4].atype = type;
 			addrs4[naddrs4].fullbytes = randsaddr_config->do_fullbytes;
 			addrs4[naddrs4].s_pfx = ras_saddr_prefix(s);
@@ -324,6 +355,9 @@ _done:		randsaddr.initdone = YES;
 		if (s) memset(s, 0, strlen(s));
 		unsetenv("RANDSADDR");
 	}
+
+	caddrs6 = (const struct s_addrcfg *)addrs6;
+	caddrs4 = (const struct s_addrcfg *)addrs4;
 
 	goto _done;
 }
@@ -416,6 +450,8 @@ static ras_yesno common_bind_random(int sockfd, in_port_t portid, ras_yesno from
 	size_t x;
 	union s_addr sa;
 
+	if (randsaddr.disabled) return NO;
+
 	if (naddrs6 == 0) goto _try4;
 _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 	sap = &caddrs6[x];
@@ -430,7 +466,7 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
-		exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->adm, sap->nadm);
+		exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
 		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
 			if (caddrs6[x].whitelisted == YES
@@ -478,7 +514,7 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
-		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->adm, sap->nadm);
+		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
 			&& caddrs4[x].dont_bind != YES
