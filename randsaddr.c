@@ -81,11 +81,38 @@ static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 	return (char *)s;
 }
 
+static void parse_addr_ops(struct s_addrcfg *addrs, ras_atype type, char *addrop)
+{
+	char *s, *d, *p, sc, dc;
+
+	sc = dc = *addrop;
+	s = d = addrop+1;
+
+_again:	p = strchr(s, '%');
+	if (p) {
+		*p = 0; p++; dc = *p; p++; d = p;
+	}
+
+	if (ras_stobaddr(type, addrs->adm[addrs->nadm].sa.ipa, s) == YES) {
+		switch (sc) {
+			case '&': addrs->adm[addrs->nadm].aop = RBO_AND; break;
+			case '|': addrs->adm[addrs->nadm].aop = RBO_OR; break;
+			case '^': addrs->adm[addrs->nadm].aop = RBO_XOR; break;
+		}
+	}
+	else addrs->adm[addrs->nadm].aop = RBO_NONE;
+	addrs->nadm++;
+	if (addrs->nadm >= RAS_AMODES) return;
+
+	s = d; sc = dc;
+	if (p) goto _again;
+}
+
 static void do_init(void)
 {
 	static char scfg[RAS_CFGSZ];
 	char *s, *d, *t, *p;
-	char *nmap, *weight;
+	char *nmap, *weight, *addrop;
 	ras_atype type;
 
 #ifdef USE_LIBDL
@@ -218,7 +245,7 @@ _done:		randsaddr.initdone = YES;
 			continue;
 		}
 
-		nmap = weight = NULL;
+		nmap = weight = addrop = NULL;
 		p = strchr(s, '=');
 		if (p) { /* netmap */
 			*p = 0; p++; nmap = p;
@@ -226,6 +253,10 @@ _done:		randsaddr.initdone = YES;
 		p = strchr(nmap ? nmap : s, '#');
 		if (p) { /* weight */
 			*p = 0; p++; weight = p;
+		}
+		p = strchr(weight ? weight : s, '%');
+		if (p) { /* modifiers */
+			*p = 0; p++; addrop = p;
 		}
 
 		type = ras_addr_type(s);
@@ -254,6 +285,7 @@ _done:		randsaddr.initdone = YES;
 				else randsaddr.totalweight += addrs6[naddrs6].weight;
 			}
 			else addrs6[naddrs6].weight = NOSIZE;
+			if (addrop) parse_addr_ops(&addrs6[naddrs6], RAT_IPV6, addrop);
 			naddrs6++;
 		}
 		else if (type == RAT_IPV4) {
@@ -280,6 +312,7 @@ _done:		randsaddr.initdone = YES;
 				else randsaddr.totalweight += addrs4[naddrs4].weight;
 			}
 			else addrs4[naddrs4].weight = NOSIZE;
+			if (addrop) parse_addr_ops(&addrs4[naddrs4], RAT_IPV4, addrop);
 			naddrs4++;
 		}
 	}
@@ -356,6 +389,26 @@ ras_yesno ras_addr_remapped(int af, union s_addr *pda, const union s_addr *psa)
 	return res;
 }
 
+static void exec_addrops(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
+{
+	size_t x, sz;
+
+	switch (type) {
+		case RAT_IPV6: sz = 16; break;
+		case RAT_IPV4: sz = 4; break;
+		default: sz = 0; break;
+	}
+
+	for (x = 0; x < nadm; x++) {
+		switch (adm[x].aop) {
+			case RBO_NONE: break;
+			case RBO_AND: ras_and_block(sa, adm[x].sa.ipa, sz); break;
+			case RBO_OR: ras_or_block(sa, adm[x].sa.ipa, sz); break;
+			case RBO_XOR: ras_xor_block(sa, adm[x].sa.ipa, sz); break;
+		}
+	}
+}
+
 /* returns YES on successful bind(2) event, otherwise returns NO */
 static ras_yesno common_bind_random(int sockfd, in_port_t portid, ras_yesno from_bind)
 {
@@ -377,6 +430,7 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
+		exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->adm, sap->nadm);
 		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
 			if (caddrs6[x].whitelisted == YES
@@ -424,6 +478,7 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
+		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->adm, sap->nadm);
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
 			&& caddrs4[x].dont_bind != YES
