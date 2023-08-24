@@ -46,7 +46,7 @@ RANDSADDR=SUBNET/PREFIX[,SUBNET/PREFIX,...]
 _full syntax_
 
 ```
-RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFW]SUBNET/PREFIX[#WEIGHT][%ADDRMOD][,SUBNET/PREFIX[#WEIGHT][%ADDRMOD]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT][%ADDRMOD]]
+RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFWTU]SUBNET/PREFIX[#WEIGHT][%ADDRMOD][,SUBNET/PREFIX[#WEIGHT][%ADDRMOD]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT][%ADDRMOD]]
 ```
 , where `SUBNET/PREFIX` takes a canonical CIDR IP address range syntax, like
 
@@ -74,6 +74,8 @@ Each `SUBNET/PREFIX` can also be configured with it's prefix flags:
 * `W`: whitelist (exclude) this subnet from broader subnet, say, `2001:db8:1::/48,W2001:db8:1:a::/64` will not produce addresses belonging to `2001:db8:1:a::/64` subnet at all,
 * `B`: with `bind` call, do never allow this subnet to be bindable at all (this is littly different from `W`: it's scope is limited only to `bind` call),
 * `F`: always fill address nibbles (never allow addressess like `2001:db8:0a:0d:fd00:1c::2` with multiple zero four bit groups to be generated)
+* `T`: apply this subnet rule only to TCP sockets (NOTE that but if all rules fail, it bails out without randomizing)
+* `U`: apply this subnet rule only to UDP sockets (NOTE that but if all rules fail, it bails out without randomizing)
 
 ### Subnet weights: bias random distribution among separate subnets
 

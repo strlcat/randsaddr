@@ -104,6 +104,14 @@ static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 				sap->fullbytes = YES;
 				s++;
 			break;
+			case 'T': /* valid only for TCP sockets */
+				sap->stype = RST_TCP;
+				s++;
+			break;
+			case 'U': /* valid only for UDP sockets */
+				sap->stype = RST_UDP;
+				s++;
+			break;
 		}
 	}
 
@@ -294,6 +302,7 @@ _done:		randsaddr.initdone = YES;
 		if (type == RAT_IPV6) {
 			addrs6 = ras_realloc(addrs6, (naddrs6 + 1) * sizeof(struct s_addrcfg));
 			addrs6[naddrs6].atype = type;
+			addrs6[naddrs6].stype = RST_ANY;
 			addrs6[naddrs6].eui64 = randsaddr_config->do_eui64;
 			addrs6[naddrs6].fullbytes = randsaddr_config->do_fullbytes;
 			addrs6[naddrs6].s_pfx = ras_saddr_prefix(s);
@@ -322,6 +331,7 @@ _done:		randsaddr.initdone = YES;
 		else if (type == RAT_IPV4) {
 			addrs4 = ras_realloc(addrs4, (naddrs4 + 1) * sizeof(struct s_addrcfg));
 			addrs4[naddrs4].atype = type;
+			addrs4[naddrs4].stype = RST_ANY;
 			addrs4[naddrs4].fullbytes = randsaddr_config->do_fullbytes;
 			addrs4[naddrs4].s_pfx = ras_saddr_prefix(s);
 			s = parse_flags(&addrs4[naddrs4], s);
@@ -360,6 +370,22 @@ _done:		randsaddr.initdone = YES;
 	caddrs4 = (const struct s_addrcfg *)addrs4;
 
 	goto _done;
+}
+
+ras_stype ras_socket_type(int fd)
+{
+	int res;
+	socklen_t sl;
+
+	sl = (socklen_t)sizeof(res);
+	if (getsockopt(fd, SOL_SOCKET, SO_TYPE, (void *)&res, &sl) == -1) return RST_ERROR;
+
+	switch (res) {
+		case SOCK_STREAM: return RST_TCP;
+		case SOCK_DGRAM:  return RST_UDP;
+		default:	  return RST_ANY; /* dunno, you gave me something other (AF_UNIX?) */
+	}
+	return RST_ERROR;
 }
 
 ras_yesno ras_addr_bindable(int af, const union s_addr *psa)
@@ -449,11 +475,19 @@ static ras_yesno common_bind_random(int sockfd, in_port_t portid, ras_yesno from
 	const struct s_addrcfg *sap;
 	size_t x;
 	union s_addr sa;
+	ras_stype st;
+	size_t na6, na4;
 
 	if (randsaddr.disabled) return NO;
 
-	if (naddrs6 == 0) goto _try4;
-_na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
+	st = ras_socket_type(sockfd);
+	if (st == RST_ERROR) return NO; /* If I ignore it, maybe it'll go away... */
+
+	na6 = naddrs6;
+	na4 = naddrs4;
+
+_xa6:	if (na6 == 0) goto _try4;
+_na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 	sap = &caddrs6[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
 	if (sap->remap == YES && from_bind == YES) return NO;
@@ -462,12 +496,18 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		if (x > sap->weight) goto _na6;
 	}
 	if (sap->atype == RAT_IPV6) { /* fail of you to provide valid cfg */
+		if (sap->stype != RST_ANY && sap->stype != st) {
+			na6--; /* this can create DoS condition, so keep a counter around */
+			goto _xa6; /* we don't want this socket, get another */
+		}
+
 		memset(&sa, 0, sizeof(sa));
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
 		exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
 		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
+		/* intentional use of full naddrs6 follows, this is intended */
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
 			if (caddrs6[x].whitelisted == YES
 			&& caddrs6[x].dont_bind != YES
@@ -500,8 +540,8 @@ _na6:	x = ras_prng_index(0, naddrs6 > 0 ? (naddrs6-1) : 0);
 		else goto _try4;
 	}
 
-_try4:	if (naddrs4 == 0) return NO;
-_na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
+_try4:	if (na4 == 0) return NO;
+_na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 	sap = &caddrs4[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
 	if (sap->remap == YES && from_bind == YES) return NO;
@@ -510,11 +550,17 @@ _na4:	x = ras_prng_index(0, naddrs4 > 0 ? (naddrs4-1) : 0);
 		if (x > sap->weight) goto _na4;
 	}
 	if (sap->atype == RAT_IPV4) {
+		if (sap->stype != RST_ANY && sap->stype != st) {
+			na4--; /* this can create DoS condition, so keep a counter around */
+			goto _try4; /* we don't want this socket, get another */
+		}
+
 		memset(&sa, 0, sizeof(sa));
 		if (!ras_mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
 		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
+		/* intentional use of full naddrs4 follows, this is intended */
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
 			&& caddrs4[x].dont_bind != YES

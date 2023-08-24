@@ -73,10 +73,12 @@
 
 enum { NO, YES };
 enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
+enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 };
 enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR };
 
 typedef _Bool ras_yesno;
 typedef short ras_atype;
+typedef short ras_stype;
 typedef short ras_bitop;
 
 #define NOSIZE ((size_t)-1)
@@ -111,6 +113,7 @@ struct s_addrcfg {
 	ras_yesno fullbytes;
 	ras_yesno remap;
 	size_t d_pfx;
+	ras_stype stype;
 	union s_addr da;
 	size_t weight;
 	struct s_addrmod *sadm;
@@ -181,6 +184,7 @@ extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
 extern void ras_init(void);
+extern ras_stype ras_socket_type(int);
 extern ras_yesno ras_addr_bindable(int, const union s_addr *);
 extern ras_yesno ras_addr_remapped(int, union s_addr *, const union s_addr *);
 extern ras_yesno ras_bind_random(int, in_port_t, ras_yesno);
