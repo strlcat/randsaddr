@@ -185,8 +185,9 @@ extern size_t ras_strxstr(char *, const char *, const char *);
 
 extern void ras_init(void);
 extern ras_stype ras_socket_type(int);
+extern ras_yesno ras_addr_bindable_socket(int, int, const union s_addr *);
 extern ras_yesno ras_addr_bindable(int, const union s_addr *);
-extern ras_yesno ras_addr_remapped(int, union s_addr *, const union s_addr *);
+extern ras_yesno ras_addr_remapped_socket(int, int, union s_addr *, const union s_addr *);
 extern ras_yesno ras_bind_random(int, in_port_t, ras_yesno);
 
 #endif

@@ -372,13 +372,13 @@ _done:		randsaddr.initdone = YES;
 	goto _done;
 }
 
-ras_stype ras_socket_type(int fd)
+ras_stype ras_socket_type(int sockfd)
 {
 	int res;
 	socklen_t sl;
 
 	sl = (socklen_t)sizeof(res);
-	if (getsockopt(fd, SOL_SOCKET, SO_TYPE, (void *)&res, &sl) == -1) return RST_ERROR;
+	if (getsockopt(sockfd, SOL_SOCKET, SO_TYPE, (void *)&res, &sl) == -1) return RST_ERROR;
 
 	switch (res) {
 		case SOCK_STREAM: return RST_TCP;
@@ -388,51 +388,106 @@ ras_stype ras_socket_type(int fd)
 	return RST_ERROR;
 }
 
-ras_yesno ras_addr_bindable(int af, const union s_addr *psa)
+ras_yesno ras_addr_bindable_socket(int sockfd, int af, const union s_addr *psa)
 {
 	size_t x;
+	ras_stype st;
+
+	if (sockfd != -1) {
+		st = ras_socket_type(sockfd);
+		if (st == RST_ERROR) return NO;
+	}
 
 	if (af == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].atype == RAT_IPV6
-		&& caddrs6[x].dont_bind == YES
+		if (caddrs6[x].atype != RAT_IPV6) continue;
+		if (caddrs6[x].dont_bind == YES
 		&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
 			return NO;
 		}
+		if (sockfd != -1) {
+			if (caddrs6[x].stype != RST_ANY
+			&& caddrs6[x].stype != st
+			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+				return NO;
+			}
+		}
 	}
 	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].atype == RAT_IPV4
-		&& caddrs4[x].dont_bind == YES
+		if (caddrs4[x].atype != RAT_IPV4) continue;
+		if (caddrs4[x].dont_bind == YES
 		&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
 			return NO;
+		}
+		if (sockfd != -1) {
+			if (caddrs4[x].stype != RST_ANY
+			&& caddrs4[x].stype != st
+			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+				return NO;
+			}
 		}
 	}
 	return YES;
 }
 
-ras_yesno ras_addr_remapped(int af, union s_addr *pda, const union s_addr *psa)
+ras_yesno ras_addr_bindable(int af, const union s_addr *psa)
+{
+	return ras_addr_bindable_socket(-1, af, psa);
+}
+
+ras_yesno ras_addr_remapped_socket(int sockfd, int af, union s_addr *pda, const union s_addr *psa)
 {
 	ras_yesno res = NO;
 	const struct s_addrcfg *sap = NULL;
 	size_t x;
+	ras_stype st;
+
+	if (sockfd != -1) {
+		st = ras_socket_type(sockfd);
+		if (st == RST_ERROR) return NO;
+	}
 
 	memcpy(pda, psa, sizeof(union s_addr));
 
 	if (af == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].atype == RAT_IPV6
-		&& caddrs6[x].remap == YES
-		&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
-			res = YES;
-			sap = &caddrs6[x];
-			break;
+		if (caddrs6[x].atype != RAT_IPV6) continue;
+		if (sockfd != -1) { /* socktype specific one */
+			if (caddrs6[x].stype == RST_ANY) goto _ag6;
+			if (caddrs6[x].remap == YES
+			&& caddrs6[x].stype == st
+			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+				res = YES;
+				sap = &caddrs6[x];
+				break;
+			}
+		}
+		else { /* more generic one */
+_ag6:			if (caddrs6[x].remap == YES
+			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+				res = YES;
+				sap = &caddrs6[x];
+				break;
+			}
 		}
 	}
 	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].atype == RAT_IPV4
-		&& caddrs4[x].remap == YES
-		&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
-			res = YES;
-			sap = &caddrs4[x];
-			break;
+		if (caddrs4[x].atype != RAT_IPV4) continue;
+		if (sockfd != -1) {
+			if (caddrs4[x].stype == RST_ANY) goto _ag4;
+			if (caddrs4[x].remap == YES
+			&& caddrs4[x].stype == st
+			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+				res = YES;
+				sap = &caddrs4[x];
+				break;
+			}
+		}
+		else {
+_ag4:			if (caddrs4[x].remap == YES
+			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+				res = YES;
+				sap = &caddrs4[x];
+				break;
+			}
 		}
 	}
 

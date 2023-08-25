@@ -83,13 +83,13 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	else if (addr->sa_family == AF_INET) memcpy(&sa.v4a, addr, x > sizeof(sa.v4a) ? sizeof(sa.v4a) : x);
 	else goto _call;
 
-	if (ras_addr_remapped(addr->sa_family, &da, &sa)) {
+	if (ras_addr_remapped_socket(sockfd, addr->sa_family, &da, &sa)) {
 		if (addr->sa_family == AF_INET6) paddr = (const struct sockaddr *)&da.v6a;
 		else if (addr->sa_family == AF_INET) paddr = (const struct sockaddr *)&da.v4a;
-		if (!ras_addr_bindable(addr->sa_family, &da)) paddr = (const struct sockaddr *)addr;
+		if (!ras_addr_bindable_socket(sockfd, addr->sa_family, &da)) paddr = (const struct sockaddr *)addr;
 		goto _call;
 	}
-	if (!ras_addr_bindable(addr->sa_family, &sa)) goto _call;
+	if (!ras_addr_bindable_socket(sockfd, addr->sa_family, &sa)) goto _call;
 
 	if (addr->sa_family == AF_INET6) did_bind = ras_bind_random(sockfd, sa.v6a.sin6_port, YES);
 	else if (addr->sa_family == AF_INET) did_bind = ras_bind_random(sockfd, sa.v4a.sin_port, YES);
