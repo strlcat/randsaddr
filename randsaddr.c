@@ -148,7 +148,8 @@ _again:	p = strchr(s, '%');
 	if (p) goto _again;
 }
 
-static void do_init(void)
+/* the "fnt" arg is currently unused, but might come handy in future. */
+static void do_init(ras_fntyp fnt)
 {
 	static char *scfg;
 	char *s, *d, *t, *p;
@@ -247,6 +248,14 @@ _done:		randsaddr.initdone = YES;
 		}
 		else if (!strcasecmp(s, "-eui64")) {
 			randsaddr.do_eui64 = NO;
+			continue;
+		}
+		else if (!strcasecmp(s, "ensure")) {
+			randsaddr.do_ensure = YES;
+			continue;
+		}
+		else if (!strcasecmp(s, "-ensure")) {
+			randsaddr.do_ensure = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "reuseaddr")) {
@@ -525,7 +534,7 @@ static void exec_addrops(ras_atype type, void *sa, const struct s_addrmod *adm, 
 }
 
 /* returns YES on successful bind(2) event, otherwise returns NO */
-static ras_yesno common_bind_random(int sockfd, in_port_t portid, ras_yesno from_bind)
+static ras_yesno common_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
 {
 	const struct s_addrcfg *sap;
 	size_t x;
@@ -545,7 +554,7 @@ _xa6:	if (na6 == 0) goto _try4;
 _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 	sap = &caddrs6[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na6; /* whitelisted: get another */
-	if (sap->remap == YES && from_bind == YES) return NO;
+	if (sap->remap == YES && fnt == RFN_BIND) return NO;
 	if (sap->weight != NOSIZE) { /* bias white randomness by weights distribution */
 		x = ras_prng_index(0, randsaddr_config->totalweight);
 		if (x > sap->weight) goto _na6;
@@ -599,7 +608,7 @@ _try4:	if (na4 == 0) return NO;
 _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 	sap = &caddrs4[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
-	if (sap->remap == YES && from_bind == YES) return NO;
+	if (sap->remap == YES && fnt == RFN_BIND) return NO;
 	if (sap->weight != NOSIZE) { /* bias white randomness by weights distribution */
 		x = ras_prng_index(0, (size_t)randsaddr_config->totalweight);
 		if (x > sap->weight) goto _na4;
@@ -653,21 +662,21 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void ras_init(void)
+void ras_init(ras_fntyp fnt)
 {
 	pthread_mutex_lock(&init_mutex);
-	do_init();
+	do_init(fnt);
 	pthread_mutex_unlock(&init_mutex);
 }
 
 static pthread_mutex_t bind_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-ras_yesno ras_bind_random(int sockfd, in_port_t portid, ras_yesno from_bind)
+ras_yesno ras_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
 {
 	ras_yesno res;
 
 	pthread_mutex_lock(&bind_mutex);
-	res = common_bind_random(sockfd, portid, from_bind);
+	res = common_bind_random(fnt, sockfd, portid);
 	pthread_mutex_unlock(&bind_mutex);
 
 	return res;

@@ -40,7 +40,8 @@ static inline ras_yesno af_valid(int af)
 #ifdef SHARED
 void __attribute__((constructor)) ras_shim_init(void)
 {
-	ras_init();
+	/* can't get where we are now so don't claim false hints. */
+	ras_init(RFN_UNKNOWN);
 }
 #endif
 
@@ -49,7 +50,7 @@ int socket(int domain, int type, int protocol)
 	int res;
 
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_SOCKET);
 #endif
 #ifdef USE_LIBDL
 	res = ras_libc_socket(domain, type, protocol);
@@ -58,7 +59,7 @@ int socket(int domain, int type, int protocol)
 #endif
 	if (res == -1) return res;
 	if (af_valid(domain) != YES) return res;
-	if (randsaddr_config->do_socket) ras_bind_random(res, 0, NO);
+	if (randsaddr_config->do_socket) ras_bind_random(RFN_SOCKET, res, 0);
 	return res;
 }
 
@@ -70,7 +71,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	union s_addr sa, da;
 
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_BIND);
 #endif
 	if (af_valid(paddr->sa_family) != YES) goto _call;
 	if (randsaddr_config->do_bind == NO) {
@@ -91,8 +92,8 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 	if (!ras_addr_bindable_socket(sockfd, addr->sa_family, &sa)) goto _call;
 
-	if (addr->sa_family == AF_INET6) did_bind = ras_bind_random(sockfd, sa.v6a.sin6_port, YES);
-	else if (addr->sa_family == AF_INET) did_bind = ras_bind_random(sockfd, sa.v4a.sin_port, YES);
+	if (addr->sa_family == AF_INET6) did_bind = ras_bind_random(RFN_BIND, sockfd, sa.v6a.sin6_port);
+	else if (addr->sa_family == AF_INET) did_bind = ras_bind_random(RFN_BIND, sockfd, sa.v4a.sin_port);
 	else goto _call;
 
 _call:	if (did_bind) {
@@ -109,11 +110,11 @@ _call:	if (did_bind) {
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_CONNECT);
 #endif
 	if (randsaddr_config->do_connect) {
 		/* even if connecting to peer, destination addr->sa_family must match source one, right? */
-		if (af_valid(addr->sa_family)) ras_bind_random(sockfd, 0, NO);
+		if (af_valid(addr->sa_family)) ras_bind_random(RFN_CONNECT, sockfd, 0);
 	}
 #ifdef USE_LIBDL
 	return ras_libc_connect(sockfd, addr, addrlen);
@@ -125,9 +126,9 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_SEND);
 #endif
-	if (randsaddr_config->do_send) ras_bind_random(sockfd, 0, NO);
+	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, sockfd, 0);
 #ifdef USE_LIBDL
 	return ras_libc_send(sockfd, buf, len, flags);
 #else
@@ -138,9 +139,9 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_SENDTO);
 #endif
-	if (randsaddr_config->do_sendto) ras_bind_random(sockfd, 0, NO);
+	if (randsaddr_config->do_sendto) ras_bind_random(RFN_SENDTO, sockfd, 0);
 #ifdef USE_LIBDL
 	return ras_libc_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
 #else
@@ -151,9 +152,9 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
 #ifndef SHARED
-	ras_init();
+	ras_init(RFN_SENDMSG);
 #endif
-	if (randsaddr_config->do_sendmsg) ras_bind_random(sockfd, 0, NO);
+	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0);
 #ifdef USE_LIBDL
 	return ras_libc_sendmsg(sockfd, msg, flags);
 #else
