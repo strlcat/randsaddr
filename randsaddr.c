@@ -611,7 +611,7 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 		}
 
 		memset(&sa, 0, sizeof(sa));
-		if (!ras_mkrandaddr6(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
+		if (!ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
 		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
