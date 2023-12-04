@@ -83,7 +83,7 @@ static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 	size_t x;
 	const char *s = (const char *)saddr;
 
-	for (x = 0; x < 4; x++) {
+	for (x = 0; x < 6; x++) {
 		switch (*s) {
 			case '-': /* whitelisted - don't bind to these */
 			case 'W':
