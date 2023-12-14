@@ -51,9 +51,6 @@ void read_mac_list(const char *path)
 	size_t idx;
 	char *s, ln[256];
 
-	/* currently this is only enabled for IPv6 & it's EUI64 */
-	if (randsaddr_config->do_eui64 != YES) return;
-
 	if (!fp) ras_fatal("cannot open mac list file \"%s\": %s", path, strerror(errno));
 
 	while (1) {
