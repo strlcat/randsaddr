@@ -57,6 +57,7 @@ void ras_mkeui64addr(void *d_addr, const void *s_addr)
 	memcpy(d_addr, s_addr, 16);
 	ud_addr[11] = 0xff;
 	ud_addr[12] = 0xfe;
+	ras_amendeui64addr(d_addr, s_addr);
 	if (ud_addr[8] & (1 << 0)) ud_addr[8] ^= 1 << 0;
 }
 

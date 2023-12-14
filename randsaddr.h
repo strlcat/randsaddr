@@ -194,4 +194,7 @@ extern ras_yesno ras_addr_bindable(int, const union s_addr *);
 extern ras_yesno ras_addr_remapped_socket(int, int, union s_addr *, const union s_addr *);
 extern ras_yesno ras_bind_random(ras_fntyp, int, in_port_t);
 
+extern void read_mac_list(const char *);
+extern int ras_amendeui64addr(void *, const void *);
+
 #endif

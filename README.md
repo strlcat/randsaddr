@@ -46,7 +46,7 @@ RANDSADDR=SUBNET/PREFIX[,SUBNET/PREFIX,...]
 _full syntax_
 
 ```
-RANDSADDR=[random=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFWTU]SUBNET/PREFIX[#WEIGHT][%ADDRMOD][,SUBNET/PREFIX[#WEIGHT][%ADDRMOD]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT][%ADDRMOD]]
+RANDSADDR=[random=FILE][maclist=FILE][[-][env,socket,bind,connect,send,sendto,sendmsg,eui64,reuseaddr,fullbytes]][BEFWTU]SUBNET/PREFIX[#WEIGHT][%ADDRMOD][,SUBNET/PREFIX[#WEIGHT][%ADDRMOD]][,REMAP_SUBNET/PREFIX=MAPPED_SUBNET/PREFIX[#WEIGHT][%ADDRMOD]]
 ```
 , where `SUBNET/PREFIX` takes a canonical CIDR IP address range syntax, like
 
@@ -208,6 +208,7 @@ files only add random data to it. This option can be specified up to 8 times (en
 * `reuseaddr` will enable `setsockopt(2)` `SO_REUSEADDR` option to specify that this address can be captured right now.
 Most of the times this option is not needed at all. It might be a thing with IPv4.
 * `eui64` will enable `E` prefix option for any IPv6 subnet.
+* `maclist=FILE` (for eui64 option above) provide a custom override MAC address vendors list. Useful if you want to pretend to be Realtek.
 * `fullbytes` will enable `F` prefix option for any subnet.
 
 Each keyword can be preceeded with dash symbol `-` to reverse it's effect.

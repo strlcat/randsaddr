@@ -194,6 +194,10 @@ _done:		randsaddr.initdone = YES;
 			randsaddr.randsources[x] = s+CSTR_SZ("random=");
 			continue;
 		}
+		else if (!strncasecmp(s, "maclist=", CSTR_SZ("maclist="))) {
+			read_mac_list(s+CSTR_SZ("maclist="));
+			continue;
+		}
 		else if (!strcasecmp(s, "socket")) {
 			randsaddr.do_socket = YES;
 			continue;
