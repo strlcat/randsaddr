@@ -404,7 +404,7 @@ ras_stype ras_socket_type(int sockfd)
 ras_yesno ras_addr_bindable_socket(int sockfd, int af, const union s_addr *psa)
 {
 	size_t x;
-	ras_stype st;
+	ras_stype st = RST_ERROR;
 
 	if (sockfd != -1) {
 		st = ras_socket_type(sockfd);
