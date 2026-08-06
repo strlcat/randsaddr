@@ -517,26 +517,6 @@ _ag4:			if (caddrs4[x].remap == YES
 	return res;
 }
 
-static void exec_addrops(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
-{
-	size_t x, sz;
-
-	switch (type) {
-		case RAT_IPV6: sz = 16; break;
-		case RAT_IPV4: sz = 4; break;
-		default: sz = 0; break;
-	}
-
-	for (x = 0; x < nadm; x++) {
-		switch (adm[x].aop) {
-			case RBO_NONE: break;
-			case RBO_AND: ras_and_block(sa, adm[x].sa.ipa, sz); break;
-			case RBO_OR: ras_or_block(sa, adm[x].sa.ipa, sz); break;
-			case RBO_XOR: ras_xor_block(sa, adm[x].sa.ipa, sz); break;
-		}
-	}
-}
-
 /* returns YES on successful bind(2) event, otherwise returns NO */
 static ras_yesno common_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
 {
@@ -573,7 +553,7 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
-		exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
+		ras_exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
 		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
 		/* intentional use of full naddrs6 follows, this is intended */
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
@@ -627,7 +607,7 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 		if (!ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
-		exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
+		ras_exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
 		/* intentional use of full naddrs4 follows, this is intended */
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES

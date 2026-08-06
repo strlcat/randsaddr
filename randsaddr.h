@@ -172,6 +172,7 @@ extern void ras_bit_block(void *, const void *, size_t, ras_bitop);
 extern void ras_and_block(void *, const void *, size_t);
 extern void ras_or_block(void *, const void *, size_t);
 extern void ras_xor_block(void *, const void *, size_t);
+extern void ras_exec_addrops(ras_atype, void *, const struct s_addrmod *, size_t);
 
 extern ras_atype ras_addr_type(const char *);
 extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);

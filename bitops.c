@@ -65,3 +65,23 @@ void ras_or_block(void *dst, const void *src, size_t sz)
 {
 	ras_bit_block(dst, src, sz, RBO_OR);
 }
+
+void ras_exec_addrops(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
+{
+	size_t x, sz;
+
+	switch (type) {
+		case RAT_IPV6: sz = 16; break;
+		case RAT_IPV4: sz = 4; break;
+		default: sz = 0; break;
+	}
+
+	for (x = 0; x < nadm; x++) {
+		switch (adm[x].aop) {
+			case RBO_NONE: break;
+			case RBO_AND: ras_and_block(sa, adm[x].sa.ipa, sz); break;
+			case RBO_OR: ras_or_block(sa, adm[x].sa.ipa, sz); break;
+			case RBO_XOR: ras_xor_block(sa, adm[x].sa.ipa, sz); break;
+		}
+	}
+}
