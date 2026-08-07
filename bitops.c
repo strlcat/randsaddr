@@ -66,7 +66,7 @@ void ras_or_block(void *dst, const void *src, size_t sz)
 	ras_bit_block(dst, src, sz, RBO_OR);
 }
 
-void ras_exec_addrops(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
+void ras_apply_addrmods(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
 {
 	size_t x, sz;
 

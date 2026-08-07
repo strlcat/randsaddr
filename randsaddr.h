@@ -172,7 +172,7 @@ extern void ras_bit_block(void *, const void *, size_t, ras_bitop);
 extern void ras_and_block(void *, const void *, size_t);
 extern void ras_or_block(void *, const void *, size_t);
 extern void ras_xor_block(void *, const void *, size_t);
-extern void ras_exec_addrops(ras_atype, void *, const struct s_addrmod *, size_t);
+extern void ras_apply_addrmods(ras_atype, void *, const struct s_addrmod *, size_t);
 
 extern ras_atype ras_addr_type(const char *);
 extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);
@@ -188,7 +188,8 @@ extern size_t ras_strlcpy(char *, const char *, size_t);
 extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
-extern void ras_init(ras_fntyp);
+extern void ras_init(const char *);
+extern void ras_init_detail(ras_fntyp, const char *);
 extern ras_stype ras_socket_type(int);
 extern ras_yesno ras_addr_bindable_socket(int, int, const union s_addr *);
 extern ras_yesno ras_addr_bindable(int, const union s_addr *);

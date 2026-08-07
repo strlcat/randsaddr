@@ -149,9 +149,9 @@ _again:	p = strchr(s, '%');
 }
 
 /* the "fnt" arg is currently unused, but might come handy in future. */
-static void do_init(ras_fntyp fnt)
+static void do_init(ras_fntyp fnt, const char *cfg)
 {
-	static char *scfg;
+	static char *scfg, *rsenv;
 	char *s, *d, *t, *p;
 	char *nmap, *weight, *addrop;
 	ras_atype type;
@@ -169,15 +169,19 @@ static void do_init(ras_fntyp fnt)
 	if (randsaddr.initdone) return;
 	if (randsaddr.disabled) return;
 
-	s = getenv("RANDSADDR");
-	if (!s) {
-		randsaddr.disabled = YES;
-_done:		randsaddr.initdone = YES;
-		return;
-	}
+	rsenv = NULL;
+	if (cfg) scfg = ras_strdup(cfg);
 	else {
-		scfg = ras_strdup(s);
-		ras_strlxstr(scfg, ras_szalloc(scfg), "\r\n", "\n");
+		rsenv = getenv("RANDSADDR");
+		if (!rsenv) {
+			randsaddr.disabled = YES;
+_done:			randsaddr.initdone = YES;
+			return;
+		}
+		else {
+			scfg = ras_strdup(rsenv);
+			ras_strlxstr(scfg, ras_szalloc(scfg), "\r\n", "\n");
+		}
 	}
 
 	s = d = scfg; t = NULL;
@@ -374,8 +378,7 @@ _done:		randsaddr.initdone = YES;
 	ras_prng_init();
 
 	if (randsaddr.do_clear_env) {
-		s = getenv("RANDSADDR");
-		if (s) memset(s, 0, strlen(s));
+		if (rsenv) memset(rsenv, 0, strlen(rsenv));
 		unsetenv("RANDSADDR");
 	}
 
@@ -553,7 +556,7 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
-		ras_exec_addrops(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
+		ras_apply_addrmods(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
 		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
 		/* intentional use of full naddrs6 follows, this is intended */
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
@@ -607,7 +610,7 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 		if (!ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
-		ras_exec_addrops(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
+		ras_apply_addrmods(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
 		/* intentional use of full naddrs4 follows, this is intended */
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
@@ -646,11 +649,16 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void ras_init(ras_fntyp fnt)
+void ras_init_detail(ras_fntyp fnt, const char *cfg)
 {
 	pthread_mutex_lock(&init_mutex);
-	do_init(fnt);
+	do_init(fnt, cfg);
 	pthread_mutex_unlock(&init_mutex);
+}
+
+void ras_init(const char *cfg)
+{
+	ras_init_detail(RFN_UNKNOWN, cfg);
 }
 
 static pthread_mutex_t bind_mutex = PTHREAD_MUTEX_INITIALIZER;
