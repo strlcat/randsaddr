@@ -145,6 +145,9 @@ struct s_envcfg {
 	size_t totalweight;
 
 	char *randsources[8];
+
+	char *disfile;
+	char *dispass;
 };
 
 extern const struct s_envcfg *randsaddr_config;

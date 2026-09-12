@@ -148,6 +148,27 @@ _again:	p = strchr(s, '%');
 	if (p) goto _again;
 }
 
+static ras_yesno file_flag_disabled(void)
+{
+	int fd;
+	size_t n, sz;
+	char tmp[64];
+
+	if (randsaddr.disabled) return YES;
+	if (!randsaddr_config->disfile) return NO;
+	if (!randsaddr_config->dispass) return NO;
+
+	if (access(randsaddr_config->disfile, R_OK) == -1) return NO;
+	fd = open(randsaddr_config->disfile, O_RDONLY);
+	if (fd == -1) return NO;
+	sz = (size_t)read(fd, tmp, sizeof(tmp));
+	close(fd);
+	n = strlen(randsaddr_config->dispass);
+	if (sz == NOSIZE || sz < n) return NO;
+	if (!strncmp(tmp, randsaddr_config->dispass, n)) return YES;
+	return NO;
+}
+
 /* the "fnt" arg is currently unused, but might come handy in future. */
 static void do_init(ras_fntyp fnt, const char *cfg)
 {
@@ -200,6 +221,14 @@ _done:			randsaddr.initdone = YES;
 		}
 		else if (!strncasecmp(s, "maclist=", CSTR_SZ("maclist="))) {
 			read_mac_list(s+CSTR_SZ("maclist="));
+			continue;
+		}
+		else if (!strncasecmp(s, "disable=", CSTR_SZ("disable="))) {
+			p = strchr(s+CSTR_SZ("disable="), ':');
+			if (!p) continue;
+			*p = 0; p++;
+			randsaddr.disfile = s+CSTR_SZ("disable=");
+			randsaddr.dispass = p;
 			continue;
 		}
 		else if (!strcasecmp(s, "socket")) {
@@ -530,6 +559,7 @@ static ras_yesno common_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
 	size_t na6, na4;
 
 	if (randsaddr.disabled) return NO;
+	if (file_flag_disabled() == YES) return NO;
 
 	st = ras_socket_type(sockfd);
 	if (st == RST_ERROR) return NO; /* If I ignore it, maybe it'll go away... */
