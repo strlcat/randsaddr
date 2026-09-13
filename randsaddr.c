@@ -329,6 +329,14 @@ _done:			randsaddr.initdone = YES;
 			randsaddr.do_clear_env = YES;
 			continue;
 		}
+		else if (!strcasecmp(s, "session")) {
+			randsaddr.do_session = YES;
+			continue;
+		}
+		else if (!strcasecmp(s, "-session")) {
+			randsaddr.do_session = NO;
+			continue;
+		}
 
 		nmap = weight = addrop = NULL;
 		p = strchr(s, '=');
@@ -415,6 +423,40 @@ _done:			randsaddr.initdone = YES;
 	caddrs4 = (const struct s_addrcfg *)addrs4;
 
 	goto _done;
+}
+
+static ras_yesno __ras_mkrandaddr6(void *d_addr, const void *s_addr, size_t prefix, ras_yesno want_full)
+{
+	ras_yesno r;
+
+	if (randsaddr_config->do_session) {
+		if (randsaddr_config->session_done6) memcpy(d_addr, randsaddr_config->session_addr_data6.v6b, sizeof(randsaddr.session_addr_data6.v6b));
+		else {
+			r = ras_mkrandaddr6(d_addr, s_addr, prefix, want_full);
+			if (!r) return r;
+			memcpy(&randsaddr.session_addr_data6.v6b, d_addr, sizeof(randsaddr.session_addr_data6.v6b));
+			randsaddr.session_done6 = YES;
+		}
+		return YES;
+	}
+	return ras_mkrandaddr6(d_addr, s_addr, prefix, want_full);
+}
+
+static ras_yesno __ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t prefix, ras_yesno want_full)
+{
+	ras_yesno r;
+
+	if (randsaddr_config->do_session) {
+		if (randsaddr_config->session_done4) memcpy(d_addr, randsaddr_config->session_addr_data4.v4b, sizeof(randsaddr.session_addr_data4.v4b));
+		else {
+			r = ras_mkrandaddr6(d_addr, s_addr, prefix, want_full);
+			if (!r) return r;
+			memcpy(&randsaddr.session_addr_data4.v4b, d_addr, sizeof(randsaddr.session_addr_data4.v4b));
+			randsaddr.session_done4 = YES;
+		}
+		return YES;
+	}
+	return ras_mkrandaddr4(d_addr, s_addr, prefix, want_full);
 }
 
 ras_stype ras_socket_type(int sockfd)
@@ -538,11 +580,11 @@ _ag4:			if (caddrs4[x].remap == YES
 
 	if (res) {
 		if (af == AF_INET6) {
-			if (!ras_mkrandaddr6(&pda->v6a.sin6_addr.s6_addr, sap->da.v6b, sap->d_pfx, sap->fullbytes)) return NO;
+			if (!__ras_mkrandaddr6(&pda->v6a.sin6_addr.s6_addr, sap->da.v6b, sap->d_pfx, sap->fullbytes)) return NO;
 			if (sap->eui64) ras_mkeui64addr(&pda->v6a.sin6_addr.s6_addr, &pda->v6a.sin6_addr.s6_addr);
 		}
 		else if (af == AF_INET) {
-			if (!ras_mkrandaddr4(&pda->v4a.sin_addr, sap->da.v4b, sap->d_pfx, sap->fullbytes)) return NO;
+			if (!__ras_mkrandaddr4(&pda->v4a.sin_addr, sap->da.v4b, sap->d_pfx, sap->fullbytes)) return NO;
 		}
 	}
 
@@ -583,7 +625,7 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 		}
 
 		memset(&sa, 0, sizeof(sa));
-		if (!ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
+		if (!__ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
 		ras_apply_addrmods(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
@@ -637,7 +679,7 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 		}
 
 		memset(&sa, 0, sizeof(sa));
-		if (!ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
+		if (!__ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
 		ras_apply_addrmods(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);

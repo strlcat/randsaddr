@@ -141,6 +141,7 @@ struct s_envcfg {
 	ras_yesno do_ensure;
 	ras_yesno do_fullbytes;
 	ras_yesno do_clear_env;
+	ras_yesno do_session;
 
 	size_t totalweight;
 
@@ -148,6 +149,11 @@ struct s_envcfg {
 
 	char *disfile;
 	char *dispass;
+
+	ras_yesno session_done6;
+	ras_yesno session_done4;
+	union s_addr session_addr_data6;
+	union s_addr session_addr_data4;
 };
 
 extern const struct s_envcfg *randsaddr_config;
