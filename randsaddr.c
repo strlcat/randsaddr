@@ -154,7 +154,7 @@ static ras_yesno file_flag_disabled(void)
 	size_t n, sz;
 	char tmp[64];
 
-	if (randsaddr.disabled) return YES;
+	if (randsaddr_config->disabled) return YES;
 	if (!randsaddr_config->disfile) return NO;
 	if (!randsaddr_config->dispass) return NO;
 
@@ -187,8 +187,8 @@ static void do_init(ras_fntyp fnt, const char *cfg)
 	ras_libc_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
 #endif
 
-	if (randsaddr.initdone) return;
-	if (randsaddr.disabled) return;
+	if (randsaddr_config->initdone) return;
+	if (randsaddr_config->disabled) return;
 
 	rsenv = NULL;
 	if (cfg) scfg = ras_strdup(cfg);
@@ -214,7 +214,7 @@ _done:			randsaddr.initdone = YES;
 		if (!strncasecmp(s, "random=", CSTR_SZ("random="))) {
 			size_t x;
 
-			for (x = 0; randsaddr.randsources[x] && x < STAT_ARRAY_SZ(randsaddr_config->randsources); x++);
+			for (x = 0; randsaddr_config->randsources[x] && x < STAT_ARRAY_SZ(randsaddr_config->randsources); x++);
 			if (x >= STAT_ARRAY_SZ(randsaddr_config->randsources)) continue;
 			randsaddr.randsources[x] = s+CSTR_SZ("random=");
 			continue;
@@ -406,7 +406,7 @@ _done:			randsaddr.initdone = YES;
 
 	ras_prng_init();
 
-	if (randsaddr.do_clear_env) {
+	if (randsaddr_config->do_clear_env) {
 		if (rsenv) memset(rsenv, 0, strlen(rsenv));
 		unsetenv("RANDSADDR");
 	}
@@ -558,7 +558,7 @@ static ras_yesno common_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
 	ras_stype st;
 	size_t na6, na4;
 
-	if (randsaddr.disabled) return NO;
+	if (randsaddr_config->disabled) return NO;
 	if (file_flag_disabled() == YES) return NO;
 
 	st = ras_socket_type(sockfd);
