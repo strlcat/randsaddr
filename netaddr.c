@@ -115,3 +115,19 @@ ras_yesno ras_compare_prefix(ras_atype af, const void *a, const void *b, size_t 
 	}
 	return YES;
 }
+
+void ras_saddr_to_sockaddr(struct ras_sockaddr *ska, const struct s_addr *sa, in_port_t portid)
+{
+	memset(ska, 0, sizeof(struct ras_sockaddr));
+
+	if (sa->atype == RAT_IPV6) {
+		ska->inet6.sin6_family = AF_INET6;
+		ska->inet6.sin6_port = portid;
+		memcpy(&ska->inet6.sin6_addr.s6_addr, sa->inet6, sizeof_s(struct s_addr, inet6));
+	}
+	else if (sa->atype == RAT_IPV4) {
+		ska->inet4.sin_family = AF_INET;
+		ska->inet4.sin_port = portid;
+		memcpy(&ska->inet4.sin_addr, sa->inet4, sizeof_s(struct s_addr, inet4));
+	}
+}

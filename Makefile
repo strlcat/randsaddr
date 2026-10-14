@@ -1,6 +1,7 @@
 SRCS = $(wildcard *.c)
 HDRS = $(wildcard *.h)
-LIB_OBJS = $(SRCS:.c=.o)
+LIB_OBJS = $(filter-out rndaddr.o, $(SRCS:.c=.o))
+PROG_OBJS = rndaddr.o
 LDSO_OBJS = randsaddr.lo shim.lo prng.lo
 override CFLAGS += -Wall -fPIC
 
@@ -18,7 +19,7 @@ override CFLAGS+=-DUSE_SYSCALL
 endif
 
 default: $(LIB_OBJS) librandsaddr.a randsaddr.so
-all: $(LIB_OBJS) librandsaddr.a randsaddr.so
+all: $(LIB_OBJS) librandsaddr.a randsaddr.so rndaddr
 
 %.o: %.c $(HDRS)
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -I. -c -o $@ $<
@@ -33,5 +34,8 @@ librandsaddr.a: $(LIB_OBJS)
 randsaddr.so: $(LDSO_OBJS) librandsaddr.a
 	$(CROSS_COMPILE)$(CC) $(CFLAGS) -DSHARED $^ -shared -o $@ librandsaddr.a $(LDFLAGS) -lpthread
 
+rndaddr: $(PROG_OBJS) librandsaddr.a
+	$(CROSS_COMPILE)$(CC) $(CFLAGS) $< -o $@ librandsaddr.a $(LDFLAGS)
+
 clean:
-	rm -f librandsaddr.a randsaddr.so *.o *.lo
+	rm -f librandsaddr.a randsaddr.so rndaddr *.o *.lo

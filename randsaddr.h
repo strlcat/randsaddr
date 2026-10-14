@@ -76,13 +76,20 @@ enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
 enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 };
 enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR };
 
-enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG };
+enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR };
 
 typedef _Bool ras_yesno;
 typedef short ras_atype;
 typedef short ras_stype;
 typedef short ras_bitop;
 typedef short ras_fntyp;
+
+#define sizeof_s(typ, mem) (sizeof(((typ *)0)->mem))
+
+#define RAS_V6LEN (sizeof_s(struct s_addr, inet6))
+#define RAS_V4LEN (sizeof_s(struct s_addr, inet4))
+#define IPV6_BITS (RAS_V6LEN * 8)
+#define IPV4_BITS (RAS_V4LEN * 8)
 
 #define NOSIZE ((size_t)-1)
 
@@ -93,23 +100,30 @@ typedef short ras_fntyp;
 
 #define RAS_ADDRLEN INET6_ADDRSTRLEN+4
 
-union s_addr {
-	uint8_t ipa[16];
-	struct sockaddr_in6 v6a;
-	uint8_t v6b[16];
-	struct sockaddr_in v4a;
-	uint8_t v4b[4];
+struct s_addr {
+	ras_atype atype;
+	union {
+		uint8_t inet6[sizeof_s(struct sockaddr_in6, sin6_addr)];
+		uint8_t inet4[sizeof_s(struct sockaddr_in, sin_addr)];
+		uint8_t maxsb[sizeof_s(struct sockaddr_in6, sin6_addr)];
+	};
+};
+
+struct ras_sockaddr {
+	union {
+		struct sockaddr_in6 inet6;
+		struct sockaddr_in  inet4;
+	};
 };
 
 struct s_addrmod {
 	ras_bitop aop;
-	union s_addr sa;
+	struct s_addr sa;
 };
 
 struct s_addrcfg {
-	ras_atype atype;
 	size_t s_pfx;
-	union s_addr sa;
+	struct s_addr sa;
 	ras_yesno eui64;
 	ras_yesno whitelisted;
 	ras_yesno dont_bind;
@@ -117,7 +131,7 @@ struct s_addrcfg {
 	ras_yesno remap;
 	size_t d_pfx;
 	ras_stype stype;
-	union s_addr da;
+	struct s_addr da;
 	size_t weight;
 	struct s_addrmod *sadm;
 	size_t nadm;
@@ -152,8 +166,8 @@ struct s_envcfg {
 
 	ras_yesno session_done6;
 	ras_yesno session_done4;
-	union s_addr session_addr_data6;
-	union s_addr session_addr_data4;
+	struct s_addr session_addr_data6;
+	struct s_addr session_addr_data4;
 };
 
 extern const struct s_envcfg *randsaddr_config;
@@ -181,12 +195,13 @@ extern void ras_bit_block(void *, const void *, size_t, ras_bitop);
 extern void ras_and_block(void *, const void *, size_t);
 extern void ras_or_block(void *, const void *, size_t);
 extern void ras_xor_block(void *, const void *, size_t);
-extern void ras_apply_addrmods(ras_atype, void *, const struct s_addrmod *, size_t);
+extern void ras_apply_addrmods(struct s_addr *, const struct s_addrmod *, size_t);
 
 extern ras_atype ras_addr_type(const char *);
 extern ras_yesno ras_stobaddr(ras_atype, void *, const char *);
 extern size_t ras_saddr_prefix(const char *);
 extern ras_yesno ras_compare_prefix(ras_atype, const void *, const void *, size_t);
+extern void ras_saddr_to_sockaddr(struct ras_sockaddr *, const struct s_addr *, in_port_t);
 
 static inline ras_yesno ras_str_empty(const char *str)
 {
@@ -200,10 +215,10 @@ extern size_t ras_strxstr(char *, const char *, const char *);
 extern void ras_init(const char *);
 extern void ras_init_detail(ras_fntyp, const char *);
 extern ras_stype ras_socket_type(int);
-extern ras_yesno ras_addr_bindable_socket(int, int, const union s_addr *);
-extern ras_yesno ras_addr_bindable(int, const union s_addr *);
-extern ras_yesno ras_addr_remapped_socket(int, int, union s_addr *, const union s_addr *);
-extern ras_yesno ras_bind_random(ras_fntyp, int, in_port_t);
+extern ras_yesno ras_addr_bindable_socket(int, const struct s_addr *);
+extern ras_yesno ras_addr_bindable(const struct s_addr *);
+extern ras_yesno ras_addr_remapped_socket(int, struct s_addr *, const struct s_addr *);
+extern ras_yesno ras_bind_random(ras_fntyp, int, in_port_t, struct s_addr *);
 
 extern void read_mac_list(const char *);
 extern int ras_amendeui64addr(void *, const void *);
