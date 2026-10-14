@@ -100,14 +100,14 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 	else goto _call;
 
-	if (ras_addr_remapped_socket(sockfd, &da, &sa)) {
+	if (ras_addr_remapped_socket(sockfd, &da, &sa) == YES) {
 		ras_saddr_to_sockaddr(&ska, &da, portid);
 		if (addr->sa_family == AF_INET6) paddr = (const struct sockaddr *)&ska.inet6;
 		else if (addr->sa_family == AF_INET) paddr = (const struct sockaddr *)&ska.inet4;
 		if (ras_addr_bindable_socket(sockfd, &da) != YES) paddr = (const struct sockaddr *)addr;
 		goto _call;
 	}
-	if (!ras_addr_bindable_socket(sockfd, &sa)) {
+	if (ras_addr_bindable_socket(sockfd, &sa) != YES) {
 		ras_saddr_to_sockaddr(&ska, &da, portid);
 		goto _call;
 	}
