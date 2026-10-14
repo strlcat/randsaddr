@@ -85,17 +85,19 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	if (addr->sa_family == AF_INET6) {
 		struct sockaddr_in6 *adrp = (struct sockaddr_in6 *)addr;
 
+		memset(&sa, 0, sizeof(struct s_addr));
 		sa.atype = RAT_IPV6;
 		portid = adrp->sin6_port;
-		memcpy(&sa.inet6, addr, x > sizeof(sa.inet6) ? sizeof(sa.inet6) : x);
+		memcpy(&sa.inet6, &adrp->sin6_addr, x > sizeof(sa.inet6) ? sizeof(sa.inet6) : x);
 		ras_saddr_to_sockaddr(&ska, &sa, portid);
 	}
 	else if (addr->sa_family == AF_INET) {
 		struct sockaddr_in *adrp = (struct sockaddr_in *)addr;
 
+		memset(&sa, 0, sizeof(struct s_addr));
 		sa.atype = RAT_IPV4;
 		portid = adrp->sin_port;
-		memcpy(&sa.inet4, addr, x > sizeof(sa.inet4) ? sizeof(sa.inet4) : x);
+		memcpy(&sa.inet4, &adrp->sin_addr, x > sizeof(sa.inet4) ? sizeof(sa.inet4) : x);
 		ras_saddr_to_sockaddr(&ska, &sa, portid);
 	}
 	else goto _call;
