@@ -91,7 +91,7 @@ static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
 				s++;
 			break;
 			case 'E': /* build EUI64 style saddr */
-				if (sap->s_pfx > 88) sap->atype = RAT_NONE;
+				if (sap->s_pfx > 88) sap->sa.atype = RAT_NONE;
 				else sap->eui64 = YES;
 				s++;
 			break;
@@ -131,7 +131,8 @@ _again:	p = strchr(s, '%');
 	}
 
 	addrs->sadm = ras_realloc(addrs->sadm, (addrs->nadm + 1) * sizeof(struct s_addrmod));
-	if (ras_stobaddr(type, addrs->sadm[addrs->nadm].sa.ipa, s) == YES) {
+	if (ras_stobaddr(type, addrs->sadm[addrs->nadm].sa.maxsb, s) == YES) {
+		addrs->sadm[addrs->nadm].sa.atype = type;
 		switch (sc) {
 			case '&':
 			case 'N': addrs->sadm[addrs->nadm].aop = RBO_AND; break;
@@ -355,21 +356,21 @@ _done:			randsaddr.initdone = YES;
 		type = ras_addr_type(s);
 		if (type == RAT_IPV6) {
 			addrs6 = ras_realloc(addrs6, (naddrs6 + 1) * sizeof(struct s_addrcfg));
-			addrs6[naddrs6].atype = type;
+			addrs6[naddrs6].sa.atype = type;
 			addrs6[naddrs6].stype = RST_ANY;
 			addrs6[naddrs6].eui64 = randsaddr_config->do_eui64;
 			addrs6[naddrs6].fullbytes = randsaddr_config->do_fullbytes;
 			addrs6[naddrs6].s_pfx = ras_saddr_prefix(s);
 			s = parse_flags(&addrs6[naddrs6], s);
-			if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].sa.ipa, s) != YES) {
-				addrs6[naddrs6].atype = RAT_NONE;
+			if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].sa.maxsb, s) != YES) {
+				addrs6[naddrs6].sa.atype = RAT_NONE;
 				continue;
 			}
 			if (nmap) {
 				addrs6[naddrs6].remap = YES;
 				addrs6[naddrs6].d_pfx = ras_saddr_prefix(nmap);
-				if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].da.ipa, nmap) != YES) {
-					addrs6[naddrs6].atype = RAT_NONE;
+				if (ras_stobaddr(RAT_IPV6, addrs6[naddrs6].da.maxsb, nmap) != YES) {
+					addrs6[naddrs6].sa.atype = RAT_NONE;
 					continue;
 				}
 			}
@@ -384,20 +385,20 @@ _done:			randsaddr.initdone = YES;
 		}
 		else if (type == RAT_IPV4) {
 			addrs4 = ras_realloc(addrs4, (naddrs4 + 1) * sizeof(struct s_addrcfg));
-			addrs4[naddrs4].atype = type;
+			addrs4[naddrs4].sa.atype = type;
 			addrs4[naddrs4].stype = RST_ANY;
 			addrs4[naddrs4].fullbytes = randsaddr_config->do_fullbytes;
 			addrs4[naddrs4].s_pfx = ras_saddr_prefix(s);
 			s = parse_flags(&addrs4[naddrs4], s);
-			if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].sa.ipa, s) != YES) {
-				addrs4[naddrs4].atype = RAT_NONE;
+			if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].sa.maxsb, s) != YES) {
+				addrs4[naddrs4].sa.atype = RAT_NONE;
 				continue;
 			}
 			if (nmap) {
 				addrs4[naddrs4].remap = YES;
 				addrs4[naddrs4].d_pfx = ras_saddr_prefix(nmap);
-				if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].da.ipa, nmap) != YES) {
-					addrs4[naddrs4].atype = RAT_NONE;
+				if (ras_stobaddr(RAT_IPV4, addrs4[naddrs4].da.maxsb, nmap) != YES) {
+					addrs4[naddrs4].sa.atype = RAT_NONE;
 					continue;
 				}
 			}
@@ -430,11 +431,11 @@ static ras_yesno __ras_mkrandaddr6(void *d_addr, const void *s_addr, size_t pref
 	ras_yesno r;
 
 	if (randsaddr_config->do_session) {
-		if (randsaddr_config->session_done6) memcpy(d_addr, randsaddr_config->session_addr_data6.v6b, sizeof(randsaddr.session_addr_data6.v6b));
+		if (randsaddr_config->session_done6) memcpy(d_addr, randsaddr_config->session_addr_data6.inet6, sizeof(randsaddr.session_addr_data6.inet6));
 		else {
 			r = ras_mkrandaddr6(d_addr, s_addr, prefix, want_full);
 			if (!r) return r;
-			memcpy(&randsaddr.session_addr_data6.v6b, d_addr, sizeof(randsaddr.session_addr_data6.v6b));
+			memcpy(&randsaddr.session_addr_data6.inet6, d_addr, sizeof(randsaddr.session_addr_data6.inet6));
 			randsaddr.session_done6 = YES;
 		}
 		return YES;
@@ -447,11 +448,11 @@ static ras_yesno __ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t pref
 	ras_yesno r;
 
 	if (randsaddr_config->do_session) {
-		if (randsaddr_config->session_done4) memcpy(d_addr, randsaddr_config->session_addr_data4.v4b, sizeof(randsaddr.session_addr_data4.v4b));
+		if (randsaddr_config->session_done4) memcpy(d_addr, randsaddr_config->session_addr_data4.inet4, sizeof(randsaddr.session_addr_data4.inet4));
 		else {
 			r = ras_mkrandaddr6(d_addr, s_addr, prefix, want_full);
 			if (!r) return r;
-			memcpy(&randsaddr.session_addr_data4.v4b, d_addr, sizeof(randsaddr.session_addr_data4.v4b));
+			memcpy(&randsaddr.session_addr_data4.inet4, d_addr, sizeof(randsaddr.session_addr_data4.inet4));
 			randsaddr.session_done4 = YES;
 		}
 		return YES;
@@ -475,40 +476,42 @@ ras_stype ras_socket_type(int sockfd)
 	return RST_ERROR;
 }
 
-ras_yesno ras_addr_bindable_socket(int sockfd, int af, const union s_addr *psa)
+ras_yesno ras_addr_bindable_socket(int sockfd, const struct s_addr *psa)
 {
 	size_t x;
 	ras_stype st = RST_ERROR;
+
+	if (psa->atype != RAT_IPV4 && psa->atype != RAT_IPV6) return NO;
 
 	if (sockfd != -1) {
 		st = ras_socket_type(sockfd);
 		if (st == RST_ERROR) return NO;
 	}
 
-	if (af == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].atype != RAT_IPV6) continue;
+	if (psa->atype == RAT_IPV6) for (x = 0; x < naddrs6; x++) {
+		if (caddrs6[x].sa.atype != RAT_IPV6) continue;
 		if (caddrs6[x].dont_bind == YES
-		&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+		&& ras_compare_prefix(RAT_IPV6, psa->inet6, caddrs6[x].sa.inet6, caddrs6[x].s_pfx)) {
 			return NO;
 		}
 		if (sockfd != -1) {
 			if (caddrs6[x].stype != RST_ANY
 			&& caddrs6[x].stype != st
-			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV6, psa->inet6, caddrs6[x].sa.inet6, caddrs6[x].s_pfx)) {
 				return NO;
 			}
 		}
 	}
-	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].atype != RAT_IPV4) continue;
+	if (psa->atype == RAT_IPV4) for (x = 0; x < naddrs4; x++) {
+		if (caddrs4[x].sa.atype != RAT_IPV4) continue;
 		if (caddrs4[x].dont_bind == YES
-		&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+		&& ras_compare_prefix(RAT_IPV4, psa->inet4, caddrs4[x].sa.inet4, caddrs4[x].s_pfx)) {
 			return NO;
 		}
 		if (sockfd != -1) {
 			if (caddrs4[x].stype != RST_ANY
 			&& caddrs4[x].stype != st
-			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV4, psa->inet4, caddrs4[x].sa.inet4, caddrs4[x].s_pfx)) {
 				return NO;
 			}
 		}
@@ -516,32 +519,34 @@ ras_yesno ras_addr_bindable_socket(int sockfd, int af, const union s_addr *psa)
 	return YES;
 }
 
-ras_yesno ras_addr_bindable(int af, const union s_addr *psa)
+ras_yesno ras_addr_bindable(const struct s_addr *psa)
 {
-	return ras_addr_bindable_socket(-1, af, psa);
+	return ras_addr_bindable_socket(-1, psa);
 }
 
-ras_yesno ras_addr_remapped_socket(int sockfd, int af, union s_addr *pda, const union s_addr *psa)
+ras_yesno ras_addr_remapped_socket(int sockfd, struct s_addr *pda, const struct s_addr *psa)
 {
 	ras_yesno res = NO;
 	const struct s_addrcfg *sap = NULL;
 	size_t x;
 	ras_stype st;
 
+	if (psa->atype != RAT_IPV4 && psa->atype != RAT_IPV6) return NO;
+
 	if (sockfd != -1) {
 		st = ras_socket_type(sockfd);
 		if (st == RST_ERROR) return NO;
 	}
 
-	memcpy(pda, psa, sizeof(union s_addr));
+	memcpy(pda, psa, sizeof(struct s_addr));
 
-	if (af == AF_INET6) for (x = 0; x < naddrs6; x++) {
-		if (caddrs6[x].atype != RAT_IPV6) continue;
+	if (psa->atype == RAT_IPV6) for (x = 0; x < naddrs6; x++) {
+		if (caddrs6[x].sa.atype != RAT_IPV6) continue;
 		if (sockfd != -1) { /* socktype specific one */
 			if (caddrs6[x].stype == RST_ANY) goto _ag6;
 			if (caddrs6[x].remap == YES
 			&& caddrs6[x].stype == st
-			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV6, psa->inet6, caddrs6[x].sa.inet6, caddrs6[x].s_pfx)) {
 				res = YES;
 				sap = &caddrs6[x];
 				break;
@@ -549,20 +554,20 @@ ras_yesno ras_addr_remapped_socket(int sockfd, int af, union s_addr *pda, const 
 		}
 		else { /* more generic one */
 _ag6:			if (caddrs6[x].remap == YES
-			&& ras_compare_prefix(RAT_IPV6, &psa->v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV6, psa->inet6, caddrs6[x].sa.inet6, caddrs6[x].s_pfx)) {
 				res = YES;
 				sap = &caddrs6[x];
 				break;
 			}
 		}
 	}
-	if (af == AF_INET) for (x = 0; x < naddrs4; x++) {
-		if (caddrs4[x].atype != RAT_IPV4) continue;
+	if (psa->atype == RAT_IPV4) for (x = 0; x < naddrs4; x++) {
+		if (caddrs4[x].sa.atype != RAT_IPV4) continue;
 		if (sockfd != -1) {
 			if (caddrs4[x].stype == RST_ANY) goto _ag4;
 			if (caddrs4[x].remap == YES
 			&& caddrs4[x].stype == st
-			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV4, psa->inet4, caddrs4[x].sa.inet4, caddrs4[x].s_pfx)) {
 				res = YES;
 				sap = &caddrs4[x];
 				break;
@@ -570,7 +575,7 @@ _ag6:			if (caddrs6[x].remap == YES
 		}
 		else {
 _ag4:			if (caddrs4[x].remap == YES
-			&& ras_compare_prefix(RAT_IPV4, &psa->v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV4, psa->inet4, caddrs4[x].sa.inet4, caddrs4[x].s_pfx)) {
 				res = YES;
 				sap = &caddrs4[x];
 				break;
@@ -579,32 +584,37 @@ _ag4:			if (caddrs4[x].remap == YES
 	}
 
 	if (res) {
-		if (af == AF_INET6) {
-			if (!__ras_mkrandaddr6(&pda->v6a.sin6_addr.s6_addr, sap->da.v6b, sap->d_pfx, sap->fullbytes)) return NO;
-			if (sap->eui64) ras_mkeui64addr(&pda->v6a.sin6_addr.s6_addr, &pda->v6a.sin6_addr.s6_addr);
+		if (psa->atype == RAT_IPV6) {
+			if (!__ras_mkrandaddr6(pda->inet6, sap->da.inet6, sap->d_pfx, sap->fullbytes)) return NO;
+			if (sap->eui64) ras_mkeui64addr(pda->inet6, pda->inet6);
 		}
-		else if (af == AF_INET) {
-			if (!__ras_mkrandaddr4(&pda->v4a.sin_addr, sap->da.v4b, sap->d_pfx, sap->fullbytes)) return NO;
+		else if (psa->atype == RAT_IPV4) {
+			if (!__ras_mkrandaddr4(pda->inet4, sap->da.inet4, sap->d_pfx, sap->fullbytes)) return NO;
 		}
 	}
 
 	return res;
 }
 
-/* returns YES on successful bind(2) event, otherwise returns NO */
-static ras_yesno common_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
+static ras_yesno rand_addr_sock(ras_fntyp fnt, int sockfd, in_port_t portid, struct s_addr *dsa)
 {
 	const struct s_addrcfg *sap;
 	size_t x;
-	union s_addr sa;
+	struct s_addr sa;
 	ras_stype st;
 	size_t na6, na4;
 
-	if (randsaddr_config->disabled) return NO;
-	if (file_flag_disabled() == YES) return NO;
+	if (fnt != RFN_RNDADDR) {
+		/* do not honor global knobs in case if running from rndaddr program */
+		if (randsaddr_config->disabled) return NO;
+		if (file_flag_disabled() == YES) return NO;
+	}
 
-	st = ras_socket_type(sockfd);
-	if (st == RST_ERROR) return NO; /* If I ignore it, maybe it'll go away... */
+	if (fnt != RFN_RNDADDR) {
+		st = ras_socket_type(sockfd);
+		if (st == RST_ERROR) return NO;
+	}
+	else st = RST_ANY;
 
 	na6 = naddrs6;
 	na4 = naddrs4;
@@ -618,49 +628,60 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 		x = ras_prng_index(0, randsaddr_config->totalweight);
 		if (x > sap->weight) goto _na6;
 	}
-	if (sap->atype == RAT_IPV6) { /* fail of you to provide valid cfg */
+	if (sap->sa.atype == RAT_IPV6) { /* fail of you to provide valid cfg */
 		if (sap->stype != RST_ANY && sap->stype != st) {
 			na6--; /* this can create DoS condition, so keep a counter around */
 			goto _xa6; /* we don't want this socket, get another */
 		}
 
 		memset(&sa, 0, sizeof(sa));
-		if (!__ras_mkrandaddr6(&sa.v6a.sin6_addr.s6_addr, sap->sa.v6b, sap->s_pfx, sap->fullbytes)) {
+		sa.atype = RAT_IPV6;
+
+		if (!__ras_mkrandaddr6(sa.inet6, sap->sa.inet6, sap->s_pfx, sap->fullbytes)) {
 			goto _try4;
 		}
-		ras_apply_addrmods(sap->atype, &sa.v6a.sin6_addr.s6_addr, sap->sadm, sap->nadm);
-		if (sap->eui64) ras_mkeui64addr(&sa.v6a.sin6_addr.s6_addr, &sa.v6a.sin6_addr.s6_addr);
+		ras_apply_addrmods(&sa, sap->sadm, sap->nadm);
+		if (sap->eui64) ras_mkeui64addr(sa.inet6, sa.inet6);
 		/* intentional use of full naddrs6 follows, this is intended */
 		for (x = 0; x < naddrs6; x++) { /* whitelisted range: get another */
 			if (caddrs6[x].whitelisted == YES
 			&& caddrs6[x].dont_bind != YES
-			&& ras_compare_prefix(RAT_IPV6, &sa.v6a.sin6_addr.s6_addr, caddrs6[x].sa.v6b, caddrs6[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV6, sa.inet6, caddrs6[x].sa.inet6, caddrs6[x].s_pfx)) {
 				goto _na6;
 			}
 		}
-		sa.v6a.sin6_family = AF_INET6;
-		sa.v6a.sin6_port = portid;
-		if (!ras_addr_bindable(AF_INET6, &sa)) goto _try4;
-		if (randsaddr_config->do_reuseaddr) {
-			int v = 1;
-			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+
+		if (fnt == RFN_RNDADDR) {
+			/* Just copy the result of function, and return success */
+			memcpy(dsa, &sa, sizeof(struct s_addr));
+			return YES;
+		}
+		else {
+			struct ras_sockaddr ska;
+
+			if (!ras_addr_bindable(&sa)) goto _try4;
+			ras_saddr_to_sockaddr(&ska, &sa, portid);
+			if (randsaddr_config->do_reuseaddr) {
+				int v = 1;
+				setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 #ifdef SO_REUSEPORT
-			setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
+				setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
 #endif
-		}
+			}
 #ifdef IP_FREEBIND
-		if (randsaddr_config->do_freebind) {
-			int v = 1;
-			setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
-		}
+			if (randsaddr_config->do_freebind) {
+				int v = 1;
+				setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
+			}
 #endif
-		/* This call shall ignore any errors since it's just hint anyway. */
+			/* This call shall ignore any errors since it's just hint anyway. */
 #ifdef USE_LIBDL
-		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+			if (ras_libc_bind(sockfd, (struct sockaddr *)&ska.inet6, sizeof_s(struct ras_sockaddr, inet6)) == 0) return YES;
 #else
-		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v6a, sizeof(struct sockaddr_in6)) == 0) return YES;
+			if (syscall(SYS_bind, sockfd, (struct sockaddr *)&ska.inet6, sizeof_s(struct ras_sockaddr, inet6)) == 0) return YES;
 #endif
-		else goto _try4;
+			else goto _try4;
+		}
 	}
 
 _try4:	if (na4 == 0) return NO;
@@ -672,48 +693,59 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 		x = ras_prng_index(0, (size_t)randsaddr_config->totalweight);
 		if (x > sap->weight) goto _na4;
 	}
-	if (sap->atype == RAT_IPV4) {
+	if (sap->sa.atype == RAT_IPV4) {
 		if (sap->stype != RST_ANY && sap->stype != st) {
 			na4--; /* this can create DoS condition, so keep a counter around */
 			goto _try4; /* we don't want this socket, get another */
 		}
 
 		memset(&sa, 0, sizeof(sa));
-		if (!__ras_mkrandaddr4(&sa.v4a.sin_addr, sap->sa.v4b, sap->s_pfx, sap->fullbytes)) {
+		sa.atype = RAT_IPV4;
+
+		if (!__ras_mkrandaddr4(sa.inet4, sap->sa.inet4, sap->s_pfx, sap->fullbytes)) {
 			return NO;
 		}
-		ras_apply_addrmods(sap->atype, &sa.v4a.sin_addr, sap->sadm, sap->nadm);
+		ras_apply_addrmods(&sa, sap->sadm, sap->nadm);
 		/* intentional use of full naddrs4 follows, this is intended */
 		for (x = 0; x < naddrs4; x++) { /* whitelisted range: get another */
 			if (caddrs4[x].whitelisted == YES
 			&& caddrs4[x].dont_bind != YES
-			&& ras_compare_prefix(RAT_IPV4, &sa.v4a.sin_addr, caddrs4[x].sa.v4b, caddrs4[x].s_pfx)) {
+			&& ras_compare_prefix(RAT_IPV4, sa.inet4, caddrs4[x].sa.inet4, caddrs4[x].s_pfx)) {
 				goto _na4;
 			}
 		}
-		sa.v4a.sin_family = AF_INET;
-		sa.v4a.sin_port = portid;
-		if (!ras_addr_bindable(AF_INET, &sa)) return NO;
-		if (randsaddr_config->do_reuseaddr) {
-			int v = 1;
-			setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
+
+		if (fnt == RFN_RNDADDR) {
+			/* Just copy the result of function, and return success */
+			memcpy(dsa, &sa, sizeof(struct s_addr));
+			return YES;
+		}
+		else {
+			struct ras_sockaddr ska;
+
+			if (!ras_addr_bindable(&sa)) return NO;
+			ras_saddr_to_sockaddr(&ska, &sa, portid);
+			if (randsaddr_config->do_reuseaddr) {
+				int v = 1;
+				setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &v, sizeof(v));
 #ifdef SO_REUSEPORT
-			setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
+				setsockopt(sockfd, SOL_SOCKET, SO_REUSEPORT, &v, sizeof(v));
 #endif
-		}
+			}
 #ifdef IP_FREEBIND
-		if (randsaddr_config->do_freebind) {
-			int v = 1;
-			setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
-		}
+			if (randsaddr_config->do_freebind) {
+				int v = 1;
+				setsockopt(sockfd, IPPROTO_IP, IP_FREEBIND, &v, sizeof(v));
+			}
 #endif
-		/* This call shall ignore any errors since it's just hint anyway. */
+			/* This call shall ignore any errors since it's just hint anyway. */
 #ifdef USE_LIBDL
-		if (ras_libc_bind(sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
+			if (ras_libc_bind(sockfd, (struct sockaddr *)&ska.inet4, sizeof_s(struct ras_sockaddr, inet4)) == 0) return YES;
 #else
-		if (syscall(SYS_bind, sockfd, (struct sockaddr *)&sa.v4a, sizeof(struct sockaddr_in)) == 0) return YES;
+			if (syscall(SYS_bind, sockfd, (struct sockaddr *)&ska.inet4, sizeof_s(struct ras_sockaddr, inet4)) == 0) return YES;
 #endif
-		else return NO;
+			else return NO;
+		}
 	}
 
 	return NO;
@@ -735,12 +767,13 @@ void ras_init(const char *cfg)
 
 static pthread_mutex_t bind_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-ras_yesno ras_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid)
+ras_yesno ras_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid, struct s_addr *dsa)
 {
 	ras_yesno res;
 
 	pthread_mutex_lock(&bind_mutex);
-	res = common_bind_random(fnt, sockfd, portid);
+	if (fnt == RFN_RNDADDR) res = rand_addr_sock(fnt, -1, 0, dsa);
+	else res = rand_addr_sock(fnt, sockfd, portid, NULL);
 	pthread_mutex_unlock(&bind_mutex);
 
 	return res;

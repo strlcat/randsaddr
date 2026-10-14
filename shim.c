@@ -59,7 +59,7 @@ int socket(int domain, int type, int protocol)
 #endif
 	if (res == -1) return res;
 	if (af_valid(domain) != YES) return res;
-	if (randsaddr_config->do_socket) ras_bind_random(RFN_SOCKET, res, 0);
+	if (randsaddr_config->do_socket) ras_bind_random(RFN_SOCKET, res, 0, NULL);
 	return res;
 }
 
@@ -68,7 +68,9 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	ras_yesno did_bind = NO;
 	const struct sockaddr *paddr = (const struct sockaddr *)addr;
 	size_t x;
-	union s_addr sa, da;
+	struct s_addr sa, da;
+	struct ras_sockaddr ska;
+	in_port_t portid;
 
 #ifndef SHARED
 	ras_init_detail(RFN_BIND, NULL);
@@ -80,20 +82,38 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	}
 
 	x = (size_t)addrlen;
-	if (addr->sa_family == AF_INET6) memcpy(&sa.v6a, addr, x > sizeof(sa.v6a) ? sizeof(sa.v6a) : x);
-	else if (addr->sa_family == AF_INET) memcpy(&sa.v4a, addr, x > sizeof(sa.v4a) ? sizeof(sa.v4a) : x);
+	if (addr->sa_family == AF_INET6) {
+		struct sockaddr_in6 *adrp = (struct sockaddr_in6 *)addr;
+
+		sa.atype = RAT_IPV6;
+		portid = adrp->sin6_port;
+		memcpy(&sa.inet6, addr, x > sizeof(sa.inet6) ? sizeof(sa.inet6) : x);
+		ras_saddr_to_sockaddr(&ska, &sa, portid);
+	}
+	else if (addr->sa_family == AF_INET) {
+		struct sockaddr_in *adrp = (struct sockaddr_in *)addr;
+
+		sa.atype = RAT_IPV4;
+		portid = adrp->sin_port;
+		memcpy(&sa.inet4, addr, x > sizeof(sa.inet4) ? sizeof(sa.inet4) : x);
+		ras_saddr_to_sockaddr(&ska, &sa, portid);
+	}
 	else goto _call;
 
-	if (ras_addr_remapped_socket(sockfd, addr->sa_family, &da, &sa)) {
-		if (addr->sa_family == AF_INET6) paddr = (const struct sockaddr *)&da.v6a;
-		else if (addr->sa_family == AF_INET) paddr = (const struct sockaddr *)&da.v4a;
-		if (!ras_addr_bindable_socket(sockfd, addr->sa_family, &da)) paddr = (const struct sockaddr *)addr;
+	if (ras_addr_remapped_socket(sockfd, &da, &sa)) {
+		ras_saddr_to_sockaddr(&ska, &da, portid);
+		if (addr->sa_family == AF_INET6) paddr = (const struct sockaddr *)&ska.inet6;
+		else if (addr->sa_family == AF_INET) paddr = (const struct sockaddr *)&ska.inet4;
+		if (ras_addr_bindable_socket(sockfd, &da) != YES) paddr = (const struct sockaddr *)addr;
 		goto _call;
 	}
-	if (!ras_addr_bindable_socket(sockfd, addr->sa_family, &sa)) goto _call;
+	if (!ras_addr_bindable_socket(sockfd, &sa)) {
+		ras_saddr_to_sockaddr(&ska, &da, portid);
+		goto _call;
+	}
 
-	if (addr->sa_family == AF_INET6) did_bind = ras_bind_random(RFN_BIND, sockfd, sa.v6a.sin6_port);
-	else if (addr->sa_family == AF_INET) did_bind = ras_bind_random(RFN_BIND, sockfd, sa.v4a.sin_port);
+	if (addr->sa_family == AF_INET6) did_bind = ras_bind_random(RFN_BIND, sockfd, portid, NULL);
+	else if (addr->sa_family == AF_INET) did_bind = ras_bind_random(RFN_BIND, sockfd, portid, NULL);
 	else goto _call;
 
 _call:	if (did_bind) {
@@ -114,7 +134,7 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 #endif
 	if (randsaddr_config->do_connect) {
 		/* even if connecting to peer, destination addr->sa_family must match source one, right? */
-		if (af_valid(addr->sa_family)) ras_bind_random(RFN_CONNECT, sockfd, 0);
+		if (af_valid(addr->sa_family)) ras_bind_random(RFN_CONNECT, sockfd, 0, NULL);
 	}
 #ifdef USE_LIBDL
 	return ras_libc_connect(sockfd, addr, addrlen);
@@ -128,7 +148,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 #ifndef SHARED
 	ras_init_detail(RFN_SEND, NULL);
 #endif
-	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, sockfd, 0);
+	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_send(sockfd, buf, len, flags);
 #else
@@ -141,7 +161,7 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct 
 #ifndef SHARED
 	ras_init_detail(RFN_SENDTO, NULL);
 #endif
-	if (randsaddr_config->do_sendto) ras_bind_random(RFN_SENDTO, sockfd, 0);
+	if (randsaddr_config->do_sendto) ras_bind_random(RFN_SENDTO, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
 #else
@@ -154,7 +174,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 #ifndef SHARED
 	ras_init_detail(RFN_SENDMSG, NULL);
 #endif
-	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0);
+	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_sendmsg(sockfd, msg, flags);
 #else

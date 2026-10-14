@@ -66,22 +66,27 @@ void ras_or_block(void *dst, const void *src, size_t sz)
 	ras_bit_block(dst, src, sz, RBO_OR);
 }
 
-void ras_apply_addrmods(ras_atype type, void *sa, const struct s_addrmod *adm, size_t nadm)
+void ras_apply_addrmods(struct s_addr *sa, const struct s_addrmod *adm, size_t nadm)
 {
-	size_t x, sz;
-
-	switch (type) {
-		case RAT_IPV6: sz = 16; break;
-		case RAT_IPV4: sz = 4; break;
-		default: sz = 0; break;
-	}
+	size_t x;
 
 	for (x = 0; x < nadm; x++) {
+		ras_atype at = adm[x].sa.atype;
+
 		switch (adm[x].aop) {
 			case RBO_NONE: break;
-			case RBO_AND: ras_and_block(sa, adm[x].sa.ipa, sz); break;
-			case RBO_OR: ras_or_block(sa, adm[x].sa.ipa, sz); break;
-			case RBO_XOR: ras_xor_block(sa, adm[x].sa.ipa, sz); break;
+			case RBO_AND:
+				if (at == RAT_IPV6) ras_and_block(sa->inet6, adm[x].sa.inet6, RAS_V6LEN);
+				else if (at == RAT_IPV4) ras_and_block(sa->inet4, adm[x].sa.inet4, RAS_V4LEN);
+				break;
+			case RBO_OR:
+				if (at == RAT_IPV6) ras_or_block(sa->inet6, adm[x].sa.inet6, RAS_V6LEN);
+				else if (at == RAT_IPV4) ras_or_block(sa->inet4, adm[x].sa.inet4, RAS_V4LEN);
+				break;
+			case RBO_XOR:
+				if (at == RAT_IPV6) ras_xor_block(sa->inet6, adm[x].sa.inet6, RAS_V6LEN);
+				else if (at == RAT_IPV4) ras_xor_block(sa->inet4, adm[x].sa.inet4, RAS_V4LEN);
+				break;
 		}
 	}
 }

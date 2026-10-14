@@ -9,3 +9,4 @@ _*
 *.patch
 tags
 randsaddr.so
+rndaddr
