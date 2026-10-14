@@ -538,8 +538,6 @@ ras_yesno ras_addr_remapped_socket(int sockfd, struct s_addr *pda, const struct 
 		if (st == RST_ERROR) return NO;
 	}
 
-	memcpy(pda, psa, sizeof(struct s_addr));
-
 	if (psa->atype == RAT_IPV6) for (x = 0; x < naddrs6; x++) {
 		if (caddrs6[x].sa.atype != RAT_IPV6) continue;
 		if (sockfd != -1) { /* socktype specific one */
@@ -584,6 +582,7 @@ _ag4:			if (caddrs4[x].remap == YES
 	}
 
 	if (res) {
+		memcpy(pda, psa, sizeof(struct s_addr));
 		if (psa->atype == RAT_IPV6) {
 			if (!__ras_mkrandaddr6(pda->inet6, sap->da.inet6, sap->d_pfx, sap->fullbytes)) return NO;
 			if (sap->eui64) ras_mkeui64addr(pda->inet6, pda->inet6);
