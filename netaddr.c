@@ -85,8 +85,8 @@ size_t ras_saddr_prefix(const char *saddr)
 	res = (size_t)strtoul(d, &stoi, 10);
 
 	if (!ras_str_empty(stoi)) return NOSIZE;
-	if (atype == RAT_IPV6 && res > 128) return NOSIZE;
-	else if (atype == RAT_IPV4 && res > 32) return NOSIZE;
+	if (atype == RAT_IPV6 && res > IPV6_BITS) return NOSIZE;
+	else if (atype == RAT_IPV4 && res > IPV4_BITS) return NOSIZE;
 
 	return res;
 }
@@ -97,8 +97,8 @@ ras_yesno ras_compare_prefix(ras_atype af, const void *a, const void *b, size_t 
 	const uint8_t *ub = (const uint8_t *)b;
 	size_t x, y, max;
 
-	if (af == RAT_IPV4) max = 32;
-	else if (af == RAT_IPV6) max = 128;
+	if (af == RAT_IPV6) max = IPV6_BITS;
+	else if (af == RAT_IPV4) max = IPV4_BITS;
 	else return NO;
 
 	if (sz > max) return NO;

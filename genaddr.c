@@ -34,18 +34,18 @@ ras_yesno ras_mkrandaddr6(void *d_addr, const void *s_addr, size_t prefix, ras_y
 	size_t x;
 	uint8_t c;
 
-	if (prefix < 0 || prefix > 128) return NO;
-	memcpy(d_addr, s_addr, 16);
-	if ((128-prefix)%8) {
-		for (x = (prefix/8)+1; x < 16; x++) ud_addr[x] = ras_prng_getrandc(want_full);
+	if (prefix < 0 || prefix > IPV6_BITS) return NO;
+	memcpy(d_addr, s_addr, RAS_V6LEN);
+	if ((IPV6_BITS-prefix)%8) {
+		for (x = (prefix/8)+1; x < RAS_V6LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
 		c = ras_prng_getrandc(want_full);
-		for (x = 0; x < (128-prefix)%8; x++) {
+		for (x = 0; x < (IPV6_BITS-prefix)%8; x++) {
 			if (c & (1 << x)) ud_addr[prefix/8] |= (1 << x);
 			else ud_addr[prefix/8] &= ~(1 << x);
 		}
 	}
 	else {
-		for (x = (prefix/8); x < 16; x++) ud_addr[x] = ras_prng_getrandc(want_full);
+		for (x = (prefix/8); x < RAS_V6LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
 	}
 	return YES;
 }
@@ -54,7 +54,7 @@ void ras_mkeui64addr(void *d_addr, const void *s_addr)
 {
 	uint8_t *ud_addr = (uint8_t *)d_addr;
 
-	memcpy(d_addr, s_addr, 16);
+	memcpy(d_addr, s_addr, RAS_V6LEN);
 	ud_addr[11] = 0xff;
 	ud_addr[12] = 0xfe;
 	ras_amendeui64addr(d_addr, s_addr);
@@ -67,18 +67,18 @@ ras_yesno ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t prefix, ras_y
 	size_t x;
 	uint8_t c;
 
-	if (prefix < 0 || prefix > 32) return NO;
-	memcpy(d_addr, s_addr, 4);
-	if ((32-prefix)%8) {
-		for (x = (prefix/8)+1; x < 4; x++) ud_addr[x] = ras_prng_getrandc(want_full);
+	if (prefix < 0 || prefix > IPV4_BITS) return NO;
+	memcpy(d_addr, s_addr, RAS_V4LEN);
+	if ((IPV4_BITS-prefix)%8) {
+		for (x = (prefix/8)+1; x < RAS_V4LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
 		c = ras_prng_getrandc(want_full);
-		for (x = 0; x < (32-prefix)%8; x++) {
+		for (x = 0; x < (IPV4_BITS-prefix)%8; x++) {
 			if (c & (1 << x)) ud_addr[prefix/8] |= (1 << x);
 			else ud_addr[prefix/8] &= ~(1 << x);
 		}
 	}
 	else {
-		for (x = (prefix/8); x < 4; x++) ud_addr[x] = ras_prng_getrandc(want_full);
+		for (x = (prefix/8); x < RAS_V4LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
 	}
 	return YES;
 }
