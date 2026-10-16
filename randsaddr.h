@@ -76,7 +76,7 @@ enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
 enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 };
 enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR };
 
-enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR };
+enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 };
 
 typedef _Bool ras_yesno;
 typedef short ras_atype;
@@ -214,6 +214,7 @@ extern size_t ras_strxstr(char *, const char *, const char *);
 
 extern void ras_init(const char *);
 extern void ras_init_detail(ras_fntyp, const char *);
+extern ras_atype ras_socket_domain(int);
 extern ras_stype ras_socket_type(int);
 extern ras_yesno ras_addr_bindable_socket(int, const struct s_addr *);
 extern ras_yesno ras_addr_bindable(const struct s_addr *);

@@ -28,10 +28,23 @@
 
 #include "randsaddr.h"
 
+static size_t bcount(const char *s, char c)
+{
+	size_t r = 0;
+
+	for (size_t x = 0; s[x] != '\0';  x++) {
+		if (s[x] == c) r++;
+	}
+	return r;
+}
+
 ras_atype ras_addr_type(const char *addr)
 {
-	if (strchr(addr, '.') && !strchr(addr, ':')) return RAT_IPV4;
-	else if (strchr(addr, ':') && !strchr(addr, '.')) return RAT_IPV6;
+	if (strchr(addr, '.') && !strchr(addr, ':') && bcount(addr, '.') == 3) return RAT_IPV4;
+	else if (strchr(addr, ':') && !strchr(addr, '.')) {
+		size_t n = bcount(addr, ':');
+		if (n >= 2 && n <= 7) return RAT_IPV6;
+	}
 	return RAT_NONE;
 }
 

@@ -460,6 +460,22 @@ static ras_yesno __ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t pref
 	return ras_mkrandaddr4(d_addr, s_addr, prefix, want_full);
 }
 
+ras_atype ras_socket_domain(int sockfd)
+{
+	int res;
+	socklen_t sl;
+
+	sl = (socklen_t)sizeof(res);
+	if (getsockopt(sockfd, SOL_SOCKET, SO_DOMAIN, (void *)&res, &sl) == -1) return RAT_NONE;
+
+	switch (res) {
+		case AF_INET:	return RAT_IPV4;
+		case AF_INET6:	return RAT_IPV6;
+	}
+	/* dunno, you gave me something other (AF_UNIX?) */
+	return RAT_NONE;
+}
+
 ras_stype ras_socket_type(int sockfd)
 {
 	int res;
@@ -471,7 +487,7 @@ ras_stype ras_socket_type(int sockfd)
 	switch (res) {
 		case SOCK_STREAM: return RST_TCP;
 		case SOCK_DGRAM:  return RST_UDP;
-		default:	  return RST_ANY; /* dunno, you gave me something other (AF_UNIX?) */
+		default:	  return RST_ANY;
 	}
 	return RST_ERROR;
 }
@@ -600,16 +616,29 @@ static ras_yesno rand_addr_sock(ras_fntyp fnt, int sockfd, in_port_t portid, str
 	const struct s_addrcfg *sap;
 	size_t x;
 	struct s_addr sa;
+	ras_atype at;
 	ras_stype st;
 	size_t na6, na4;
 
-	if (fnt != RFN_RNDADDR) {
+	if (sockfd == -1 && (fnt != RFN_RNDADDR4 && fnt != RFN_RNDADDR6)) return NO;
+
+	if (sockfd != -1) {
 		/* do not honor global knobs in case if running from rndaddr program */
 		if (randsaddr_config->disabled) return NO;
 		if (file_flag_disabled() == YES) return NO;
 	}
 
-	if (fnt != RFN_RNDADDR) {
+	if (sockfd != -1) {
+		at = ras_socket_domain(sockfd);
+		if (at == RAT_NONE) return NO;
+	}
+	else {
+		if (fnt == RFN_RNDADDR4) at = RAT_IPV4;
+		else if (fnt == RFN_RNDADDR6) at = RAT_IPV6;
+		else return NO;
+	}
+
+	if (sockfd != -1) {
 		st = ras_socket_type(sockfd);
 		if (st == RST_ERROR) return NO;
 	}
@@ -618,6 +647,7 @@ static ras_yesno rand_addr_sock(ras_fntyp fnt, int sockfd, in_port_t portid, str
 	na6 = naddrs6;
 	na4 = naddrs4;
 
+	if (at != RAT_IPV6) goto _try4;
 _xa6:	if (na6 == 0) goto _try4;
 _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 	sap = &caddrs6[x];
@@ -650,7 +680,7 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 			}
 		}
 
-		if (fnt == RFN_RNDADDR) {
+		if (sockfd == -1) {
 			/* Just copy the result of function, and return success */
 			memcpy(dsa, &sa, sizeof(struct s_addr));
 			return YES;
@@ -684,6 +714,7 @@ _na6:	x = ras_prng_index(0, na6 > 0 ? (na6-1) : 0);
 	}
 
 _try4:	if (na4 == 0) return NO;
+	if (at != RAT_IPV4) return NO;
 _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 	sap = &caddrs4[x];
 	if (sap->whitelisted == YES && sap->dont_bind != YES) goto _na4; /* whitelisted: get another */
@@ -714,7 +745,7 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 			}
 		}
 
-		if (fnt == RFN_RNDADDR) {
+		if (sockfd == -1) {
 			/* Just copy the result of function, and return success */
 			memcpy(dsa, &sa, sizeof(struct s_addr));
 			return YES;
@@ -771,7 +802,7 @@ ras_yesno ras_bind_random(ras_fntyp fnt, int sockfd, in_port_t portid, struct s_
 	ras_yesno res;
 
 	pthread_mutex_lock(&bind_mutex);
-	if (fnt == RFN_RNDADDR) res = rand_addr_sock(fnt, -1, 0, dsa);
+	if (fnt == RFN_RNDADDR4 || fnt == RFN_RNDADDR6) res = rand_addr_sock(fnt, -1, 0, dsa);
 	else res = rand_addr_sock(fnt, sockfd, portid, NULL);
 	pthread_mutex_unlock(&bind_mutex);
 
