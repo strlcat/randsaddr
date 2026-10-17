@@ -783,16 +783,11 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-void ras_init_detail(ras_fntyp fnt, const char *cfg)
+void ras_init(ras_fntyp fnt, const char *cfg)
 {
 	pthread_mutex_lock(&init_mutex);
 	do_init(fnt, cfg);
 	pthread_mutex_unlock(&init_mutex);
-}
-
-void ras_init(const char *cfg)
-{
-	ras_init_detail(RFN_UNKNOWN, cfg);
 }
 
 static pthread_mutex_t bind_mutex = PTHREAD_MUTEX_INITIALIZER;

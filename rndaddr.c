@@ -11,7 +11,7 @@ int main(int argc, char **argv)
 
 	opterr = 0;
 	fnt = RFN_UNKNOWN;
-	while ((c = getopt(argc, argv, "46")) != -1) {
+	while ((c = getopt(argc, argv, "46z")) != -1) {
 		switch (c) {
 			case '4':
 				fnt = RFN_RNDADDR4;
@@ -19,6 +19,7 @@ int main(int argc, char **argv)
 			case '6':
 				fnt = RFN_RNDADDR6;
 				break;
+			case 'z': break; /* for compatibility */
 			default:
 _us:				puts("usage: rndaddr [-46] RANDSADDR_STRSPEC");
 				puts("See randsaddr.so project's README.md.");
@@ -40,7 +41,7 @@ _us:				puts("usage: rndaddr [-46] RANDSADDR_STRSPEC");
 		else if (at == RAT_IPV6) fnt = RFN_RNDADDR6;
 	}
 
-	ras_init(sarg);
+	ras_init(fnt, sarg);
 	if (ras_bind_random(fnt, -1, 0, &sa) == NO) {
 		fprintf(stderr, "rndaddr: %s: invalid specification string\n", sarg);
 		return 2;

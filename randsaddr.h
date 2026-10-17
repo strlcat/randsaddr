@@ -212,8 +212,7 @@ extern size_t ras_strlcpy(char *, const char *, size_t);
 extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
-extern void ras_init(const char *);
-extern void ras_init_detail(ras_fntyp, const char *);
+extern void ras_init(ras_fntyp, const char *);
 extern ras_atype ras_socket_domain(int);
 extern ras_stype ras_socket_type(int);
 extern ras_yesno ras_addr_bindable_socket(int, const struct s_addr *);
