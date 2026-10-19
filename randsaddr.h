@@ -74,7 +74,7 @@
 enum { NO, YES };
 enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
 enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 };
-enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR };
+enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR, RBO_ADD };
 
 enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 };
 
@@ -191,10 +191,10 @@ extern void ras_prng_init(void);
 extern uint8_t ras_prng_getrandc(ras_yesno);
 extern size_t ras_prng_index(size_t, size_t);
 
-extern void ras_bit_block(void *, const void *, size_t, ras_bitop);
 extern void ras_and_block(void *, const void *, size_t);
 extern void ras_or_block(void *, const void *, size_t);
 extern void ras_xor_block(void *, const void *, size_t);
+extern void ras_add_block(void *, const void *, size_t);
 extern void ras_apply_addrmods(struct s_addr *, const struct s_addrmod *, size_t);
 
 extern ras_atype ras_addr_type(const char *);

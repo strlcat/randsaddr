@@ -140,6 +140,8 @@ _again:	p = strchr(s, '%');
 			case 'O': addrs->sadm[addrs->nadm].aop = RBO_OR; break;
 			case '^':
 			case 'X': addrs->sadm[addrs->nadm].aop = RBO_XOR; break;
+			case '+':
+			case 'A': addrs->sadm[addrs->nadm].aop = RBO_ADD; break;
 		}
 	}
 	else addrs->sadm[addrs->nadm].aop = RBO_NONE;

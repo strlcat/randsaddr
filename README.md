@@ -107,12 +107,15 @@ Address modifier, or `ADDRMOD`, is optional rule specifying how result address m
 by operator. There are currently three operators that can be used to mangle the result freely, and unlike traditional `eui64`,
 they can freely manipulate every bit inside address:
 
-* `&` performs logical AND of result with specified user mask,
-* `|` performs logical OR of result with specified user mask,
-* `^` performs XOR of result with specified user mask.
+* `&` or `N` performs logical AND of result with specified user mask,
+* `|` or `O` performs logical OR of result with specified user mask,
+* `^` or `X` performs XOR of result with specified user mask.
+* `+` or `A` performs full address length addition with provided argument.
 
 As an example, one can trim resulting IPv6 address just to random "start" address: `2001:db8:1::/48%&ffff:ffff:ffff:ffff::%|::1`, result
 will keep random bits from 48th to 63th but strip everything from 64th, and finally will add `1` to end with `%|::1`.
+
+There is no subtract operator. To subtract, carefully craft addition rule so it will overflow the address to the desired value.
 
 _The syntax is ugly, I know._
 
