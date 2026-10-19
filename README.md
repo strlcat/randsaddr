@@ -234,6 +234,25 @@ when building programs from source code. Most libcs which can be linked statical
 
 When building, specify additional `LDFLAGS` or `LIBS` to point to this library for linking.
 
+### rndaddr program
+
+If you will do `make all`, then you will also get a demo program named rndaddr. It statically links librandsaddr.a library,
+and you can use it for random address generation the same way as `randsaddr.so` preloadable.
+
+You do not need to set RANDSADDR environment variable with it. If specifying simple address prefix, you just call it like:
+
+```
+rndaddr 2000::/3
+```
+
+With complex configuration strings, you must specify the type of desired address with `-6` or `-4` command line switches:
+
+```
+rndaddr -4 '2000::/3,127.0.0.0/12'
+```
+
+In almost all cases, this program can be used as both as API reference, and as a drop-in replacement for my older rndaddr from lynxbase.
+
 ### Further notes
 
 Some apps (like Google Chrome) may consider `LD_PRELOAD` dangerous, and they will unset it automatically, or bail out.
