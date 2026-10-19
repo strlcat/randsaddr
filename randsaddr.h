@@ -86,10 +86,10 @@ typedef short ras_fntyp;
 
 #define sizeof_s(typ, mem) (sizeof(((typ *)0)->mem))
 
-#define RAS_V6LEN (sizeof_s(struct s_addr, inet6))
-#define RAS_V4LEN (sizeof_s(struct s_addr, inet4))
-#define IPV6_BITS (RAS_V6LEN * 8)
-#define IPV4_BITS (RAS_V4LEN * 8)
+#define RAS_V6LEN 16
+#define RAS_V4LEN 4
+#define IPV6_BITS 128
+#define IPV4_BITS 32
 
 #define NOSIZE ((size_t)-1)
 
@@ -103,9 +103,9 @@ typedef short ras_fntyp;
 struct s_addr {
 	ras_atype atype;
 	union {
-		uint8_t inet6[sizeof_s(struct sockaddr_in6, sin6_addr)];
-		uint8_t inet4[sizeof_s(struct sockaddr_in, sin_addr)];
-		uint8_t maxsb[sizeof_s(struct sockaddr_in6, sin6_addr)];
+		uint8_t inet6[RAS_V6LEN];
+		uint8_t inet4[RAS_V4LEN];
+		uint8_t maxsb[RAS_V6LEN];
 	};
 };
 
