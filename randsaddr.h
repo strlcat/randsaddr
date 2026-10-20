@@ -71,18 +71,12 @@
 #include "tfprng.h"
 #include "xmalloc.h"
 
-enum { NO, YES };
-enum { RAT_NONE, RAT_IPV4, RAT_IPV6 };
-enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 };
-enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR, RBO_ADD };
+typedef enum { NO, YES } ras_yesno;
 
-enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 };
-
-typedef _Bool ras_yesno;
-typedef short ras_atype;
-typedef short ras_stype;
-typedef short ras_bitop;
-typedef short ras_fntyp;
+typedef enum { RAT_NONE, RAT_IPV4, RAT_IPV6 } ras_atype;
+typedef enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 } ras_stype;
+typedef enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR, RBO_ADD } ras_bitop;
+typedef enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 } ras_fntyp;
 
 #define sizeof_s(typ, mem) (sizeof(((typ *)0)->mem))
 
