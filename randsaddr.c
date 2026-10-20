@@ -28,7 +28,7 @@
 
 #include "randsaddr.h"
 
-static struct s_envcfg randsaddr = { .do_connect = YES, .do_fullbytes = YES, .randsources[0] = "/dev/urandom", };
+static struct s_envcfg randsaddr = { .do_connect = YES, .randsources[0] = "/dev/urandom", };
 const struct s_envcfg *randsaddr_config = &randsaddr;
 
 static struct s_addrcfg *addrs6;
