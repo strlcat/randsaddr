@@ -89,7 +89,7 @@ int ras_amendeui64addr(void *d_addr, const void *s_addr)
 
 	midx = DYN_ARRAY_SZ(maclist);
 	ridx = ras_prng_index(0, midx-1);
-	memcpy(&ud_addr[8], &maclist[ridx].macpfx, sizeof(((struct maclist *)NULL)->macpfx));
+	memcpy(&ud_addr[8], &maclist[ridx].macpfx, sizeof_s(struct maclist, macpfx));
 
 	return 1;
 }
