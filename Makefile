@@ -18,6 +18,10 @@ else
 override CFLAGS+=-DUSE_SYSCALL
 endif
 
+ifneq (,$(STRIP))
+override LDFLAGS+=-s
+endif
+
 default: $(LIB_OBJS) librandsaddr.a randsaddr.so
 all: $(LIB_OBJS) librandsaddr.a randsaddr.so rndaddr
 
