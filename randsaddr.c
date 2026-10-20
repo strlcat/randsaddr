@@ -290,14 +290,6 @@ _done:			randsaddr.initdone = YES;
 			randsaddr.do_eui64 = NO;
 			continue;
 		}
-		else if (!strcasecmp(s, "ensure")) {
-			randsaddr.do_ensure = YES;
-			continue;
-		}
-		else if (!strcasecmp(s, "-ensure")) {
-			randsaddr.do_ensure = NO;
-			continue;
-		}
 		else if (!strcasecmp(s, "reuseaddr")) {
 			randsaddr.do_reuseaddr = YES;
 			continue;
@@ -325,11 +317,11 @@ _done:			randsaddr.initdone = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "env")) {
-			randsaddr.do_clear_env = NO;
+			randsaddr.do_clearenv = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "-env")) {
-			randsaddr.do_clear_env = YES;
+			randsaddr.do_clearenv = YES;
 			continue;
 		}
 		else if (!strcasecmp(s, "session")) {
@@ -417,7 +409,7 @@ _done:			randsaddr.initdone = YES;
 
 	ras_prng_init();
 
-	if (randsaddr_config->do_clear_env) {
+	if (randsaddr_config->do_clearenv) {
 		if (rsenv) memset(rsenv, 0, strlen(rsenv));
 		unsetenv("RANDSADDR");
 	}
@@ -784,6 +776,24 @@ _na4:	x = ras_prng_index(0, na4 > 0 ? (na4-1) : 0);
 }
 
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+void ras_set_opts(ras_opts optm)
+{
+	pthread_mutex_lock(&init_mutex);
+
+	if (optm == ROP_NONE) {
+		randsaddr.do_eui64 = NO;
+		randsaddr.do_fullbytes = NO;
+		randsaddr.do_clearenv = NO;
+		randsaddr.do_session = NO;
+	}
+	if (optm & ROP_EUI64) randsaddr.do_eui64 = YES;
+	if (optm & ROP_FULLBYTES) randsaddr.do_fullbytes = YES;
+	if (optm & ROP_CLEARENV) randsaddr.do_clearenv = YES;
+	if (optm & ROP_SESSION) randsaddr.do_session = YES;
+
+	pthread_mutex_unlock(&init_mutex);
+}
 
 void ras_init(ras_fntyp fnt, const char *cfg)
 {

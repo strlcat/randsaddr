@@ -77,6 +77,7 @@ typedef enum { RAT_NONE, RAT_IPV4, RAT_IPV6 } ras_atype;
 typedef enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 } ras_stype;
 typedef enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR, RBO_ADD } ras_bitop;
 typedef enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 } ras_fntyp;
+typedef enum { ROP_NONE, ROP_EUI64, ROP_FULLBYTES, ROP_CLEARENV, ROP_SESSION } ras_opts;
 
 #define sizeof_s(typ, mem) (sizeof(((typ *)0)->mem))
 
@@ -146,9 +147,8 @@ struct s_envcfg {
 	ras_yesno do_freebind;
 #endif
 	ras_yesno do_eui64;
-	ras_yesno do_ensure;
 	ras_yesno do_fullbytes;
-	ras_yesno do_clear_env;
+	ras_yesno do_clearenv;
 	ras_yesno do_session;
 
 	size_t totalweight;
@@ -206,6 +206,7 @@ extern size_t ras_strlcpy(char *, const char *, size_t);
 extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
+extern void ras_set_opts(ras_opts); /* <-- call this BEFORE ras_init() !! */
 extern void ras_init(ras_fntyp, const char *);
 extern ras_atype ras_socket_domain(int);
 extern ras_stype ras_socket_type(int);
