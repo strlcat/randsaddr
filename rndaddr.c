@@ -22,7 +22,10 @@ int main(int argc, char **argv)
 			case 'z': break; /* for compatibility */
 			default:
 _us:				puts("usage: rndaddr [-46] RANDSADDR_STRSPEC");
-				puts("See randsaddr.so project's README.md.");
+				puts("example ipv4: rndaddr -4 172.16.0.0/12");
+				puts("example ipv6: rndaddr -6 fd89:3072:4000::/34");
+				puts("See randsaddr.so project's README.md");
+				puts("for more info about RANDSADDR_STRSPEC syntax.");
 				return 1;
 		}
 	}
