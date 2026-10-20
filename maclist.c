@@ -57,11 +57,12 @@ void read_mac_list(const char *path)
 		ln[0] = 0;
 		if (!fgetstr(ln, sizeof(ln), fp)) break;
 
+		if (ras_str_empty(ln)) continue;
+		if (ln[0] == '#') continue;
+
 		s = strchr(ln, ' ');
 		if (!s) s = strchr(ln, '\t');
 		if (!s) continue;
-		if (ras_str_empty(ln)) continue;
-		if (ln[0] == '#') continue;
 		*s = 0; s++;
 		if (strlen(ln) != CSTR_SZ("000000")) continue;
 
