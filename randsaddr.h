@@ -77,7 +77,7 @@ typedef enum { RAT_NONE, RAT_IPV4, RAT_IPV6 } ras_atype;
 typedef enum { RST_ANY, RST_TCP, RST_UDP, RST_ERROR = -1 } ras_stype;
 typedef enum { RBO_NONE, RBO_AND, RBO_OR, RBO_XOR, RBO_ADD } ras_bitop;
 typedef enum { RFN_UNKNOWN, RFN_SOCKET, RFN_BIND, RFN_CONNECT, RFN_SEND, RFN_SENDTO, RFN_SENDMSG, RFN_RNDADDR4, RFN_RNDADDR6 } ras_fntyp;
-typedef enum { ROP_NONE, ROP_EUI64, ROP_FULLBYTES, ROP_CLEARENV, ROP_SESSION } ras_opts;
+typedef enum { ROP_NONE, ROP_REUSEADDR, ROP_FREEBIND, ROP_EUI64, ROP_FULLBYTES, ROP_CLEARENV, ROP_SESSION } ras_opts;
 
 #define sizeof_s(typ, mem) (sizeof(((typ *)0)->mem))
 
@@ -142,6 +142,7 @@ struct s_envcfg {
 	ras_yesno do_send;
 	ras_yesno do_sendto;
 	ras_yesno do_sendmsg;
+
 	ras_yesno do_reuseaddr;
 #ifdef IP_FREEBIND
 	ras_yesno do_freebind;

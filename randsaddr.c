@@ -789,11 +789,19 @@ void ras_set_opts(ras_opts optm)
 	pthread_mutex_lock(&init_mutex);
 
 	if (optm == ROP_NONE) {
+		randsaddr.do_reuseaddr = NO;
+#ifdef IP_FREEBIND
+		randsaddr.do_freebind = NO;
+#endif
 		randsaddr.do_eui64 = NO;
 		randsaddr.do_fullbytes = NO;
 		randsaddr.do_clearenv = NO;
 		randsaddr.do_session = NO;
 	}
+	if (optm & ROP_REUSEADDR) randsaddr.do_reuseaddr = YES;
+#ifdef IP_FREEBIND
+	if (optm & ROP_FREEBIND) randsaddr.do_freebind = YES;
+#endif
 	if (optm & ROP_EUI64) randsaddr.do_eui64 = YES;
 	if (optm & ROP_FULLBYTES) randsaddr.do_fullbytes = YES;
 	if (optm & ROP_CLEARENV) randsaddr.do_clearenv = YES;
