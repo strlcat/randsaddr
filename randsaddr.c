@@ -180,18 +180,25 @@ static void do_init(ras_fntyp fnt, const char *cfg)
 	char *nmap, *weight, *addrop;
 	ras_atype type;
 
-#ifdef USE_LIBDL
-	/* in case of bad libdl implementation, just crash when attempt to call these will occur, clearly revealing culprit. */
-	ras_libc_socket = dlsym(RTLD_NEXT, "socket");
-	ras_libc_bind = dlsym(RTLD_NEXT, "bind");
-	ras_libc_connect = dlsym(RTLD_NEXT, "connect");
-	ras_libc_send = dlsym(RTLD_NEXT, "send");
-	ras_libc_sendto = dlsym(RTLD_NEXT, "sendto");
-	ras_libc_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
-#endif
-
 	if (randsaddr_config->initdone) return;
 	if (randsaddr_config->disabled) return;
+
+#ifdef USE_LIBDL
+	if (fnt != RFN_RNDADDR4 && fnt != RFN_RNDADDR6) { /* these are not needed at all in rndaddr tool */
+		ras_libc_socket = dlsym(RTLD_NEXT, "socket");
+		if (!ras_libc_socket) ras_fatal("socket: %s", dlerror());
+		ras_libc_bind = dlsym(RTLD_NEXT, "bind");
+		if (!ras_libc_bind) ras_fatal("bind: %s", dlerror());
+		ras_libc_connect = dlsym(RTLD_NEXT, "connect");
+		if (!ras_libc_connect) ras_fatal("connect: %s", dlerror());
+		ras_libc_send = dlsym(RTLD_NEXT, "send");
+		if (!ras_libc_send) ras_fatal("send: %s", dlerror());
+		ras_libc_sendto = dlsym(RTLD_NEXT, "sendto");
+		if (!ras_libc_sendto) ras_fatal("sendto: %s", dlerror());
+		ras_libc_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
+		if (!ras_libc_sendmsg) ras_fatal("sendmsg: %s", dlerror());
+	}
+#endif
 
 	rsenv = NULL;
 	if (cfg) scfg = ras_strdup(cfg);
