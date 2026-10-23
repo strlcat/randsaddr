@@ -2,7 +2,7 @@
  * randsaddr: randomize source address of outgoing sockets.
  *
  * randsaddr is copyrighted:
- * Copyright (C) 2022 Rys Andrey. All rights reserved.
+ * Copyright (C) 2022, 2023, 2024, 2026 Rys Andrey. All rights reserved.
  *
  * randsaddr is licensed to you under the terms of std. MIT/X11 license:
  *
