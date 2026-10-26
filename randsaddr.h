@@ -43,6 +43,14 @@
 #define _GNU_SOURCE
 #endif
 
+#ifdef __linux__
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE
+#endif
+#define USE_LINUX
+struct mmsghdr;
+#endif
+
 #include <stddef.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -61,6 +69,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <pthread.h>
+#include <sys/uio.h>
 #ifdef USE_LIBDL
 #include <dlfcn.h>
 #endif
@@ -139,9 +148,9 @@ struct s_envcfg {
 	ras_yesno do_socket; /* dangerous for servers! */
 	ras_yesno do_bind; /* dangerous for servers! */
 	ras_yesno do_connect;
-	ras_yesno do_send;
+	ras_yesno do_send; /* also applies to write{,v} */
 	ras_yesno do_sendto;
-	ras_yesno do_sendmsg;
+	ras_yesno do_sendmsg; /* also applies to sendmmsg */
 
 	ras_yesno do_reuseaddr;
 #ifdef IP_FREEBIND
@@ -174,6 +183,11 @@ extern int (*ras_libc_connect)(int, const struct sockaddr *, socklen_t);
 extern ssize_t (*ras_libc_send)(int, const void *, size_t, int);
 extern ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 extern ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
+#ifdef USE_LINUX
+extern int (*ras_libc_sendmmsg)(int, struct mmsghdr *, unsigned int, int);
+#endif
+extern ssize_t (*ras_libc_write)(int, const void *, size_t);
+extern ssize_t (*ras_libc_writev)(int, const struct iovec *, int);
 #endif
 
 extern void ras_fatal(const char *fmt, ...);

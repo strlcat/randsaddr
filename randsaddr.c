@@ -47,6 +47,11 @@ int (*ras_libc_connect)(int, const struct sockaddr *, socklen_t);
 ssize_t (*ras_libc_send)(int, const void *, size_t, int);
 ssize_t (*ras_libc_sendto)(int, const void *, size_t, int, const struct sockaddr *, socklen_t);
 ssize_t (*ras_libc_sendmsg)(int, const struct msghdr *, int);
+#ifdef USE_LINUX
+int (*ras_libc_sendmmsg)(int, struct mmsghdr *, unsigned int, int);
+#endif
+ssize_t (*ras_libc_write)(int, const void *, size_t);
+ssize_t (*ras_libc_writev)(int, const struct iovec *, int);
 #endif
 
 void ras_fatal(const char *fmt, ...)
@@ -197,6 +202,14 @@ static void do_init(ras_fntyp fnt, const char *cfg)
 		if (!ras_libc_sendto) ras_fatal("sendto: %s", dlerror());
 		ras_libc_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
 		if (!ras_libc_sendmsg) ras_fatal("sendmsg: %s", dlerror());
+#ifdef USE_LINUX
+		ras_libc_sendmmsg = dlsym(RTLD_NEXT, "sendmmsg");
+		if (!ras_libc_sendmmsg) ras_fatal("sendmmsg: %s", dlerror());
+#endif
+		ras_libc_write = dlsym(RTLD_NEXT, "write");
+		if (!ras_libc_write) ras_fatal("write: %s", dlerror());
+		ras_libc_writev = dlsym(RTLD_NEXT, "writev");
+		if (!ras_libc_writev) ras_fatal("writev: %s", dlerror());
 	}
 #endif
 
@@ -239,6 +252,24 @@ _done:			randsaddr.initdone = YES;
 			*p = 0; p++;
 			randsaddr.disfile = s+CSTR_SZ("disable=");
 			randsaddr.dispass = p;
+			continue;
+		}
+		else if (!strcasecmp(s, "all")) {
+			randsaddr.do_socket = YES;
+			randsaddr.do_bind = YES;
+			randsaddr.do_connect = YES;
+			randsaddr.do_send = YES;
+			randsaddr.do_sendto = YES;
+			randsaddr.do_sendmsg = YES;
+			continue;
+		}
+		else if (!strcasecmp(s, "-all")) {
+			randsaddr.do_socket = NO;
+			randsaddr.do_bind = NO;
+			randsaddr.do_connect = NO;
+			randsaddr.do_send = NO;
+			randsaddr.do_sendto = NO;
+			randsaddr.do_sendmsg = NO;
 			continue;
 		}
 		else if (!strcasecmp(s, "socket")) {

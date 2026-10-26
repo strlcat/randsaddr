@@ -158,6 +158,32 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 #endif
 }
 
+ssize_t write(int fd, const void *buf, size_t len)
+{
+#ifndef SHARED
+	ras_init(RFN_SEND, NULL);
+#endif
+	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, fd, 0, NULL);
+#ifdef USE_LIBDL
+	return ras_libc_write(fd, buf, len);
+#else
+	return syscall(SYS_write, fd, buf, len);
+#endif
+}
+
+ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
+{
+#ifndef SHARED
+	ras_init(RFN_SEND, NULL);
+#endif
+	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, fd, 0, NULL);
+#ifdef USE_LIBDL
+	return ras_libc_writev(fd, iov, iovcnt);
+#else
+	return syscall(SYS_writev, fd, iov, iovcnt);
+#endif
+}
+
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
 #ifndef SHARED
@@ -183,3 +209,18 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 	return syscall(SYS_sendmsg, sockfd, msg, flags);
 #endif
 }
+
+#ifdef USE_LINUX
+int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags)
+{
+#ifndef SHARED
+	ras_init(RFN_SENDMSG, NULL);
+#endif
+	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0, NULL);
+#ifdef USE_LIBDL
+	return ras_libc_sendmmsg(sockfd, msgvec, vlen, flags);
+#else
+	return syscall(SYS_sendmmsg, sockfd, msgvec, vlen, flags);
+#endif
+}
+#endif
