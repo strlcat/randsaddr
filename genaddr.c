@@ -34,7 +34,7 @@ ras_yesno ras_mkrandaddr6(void *d_addr, const void *s_addr, size_t prefix, ras_y
 	size_t x;
 	uint8_t c;
 
-	if (prefix < 0 || prefix > IPV6_BITS) return NO;
+	if (prefix > IPV6_BITS) return NO;
 	memcpy(d_addr, s_addr, RAS_V6LEN);
 	if ((IPV6_BITS-prefix)%8) {
 		for (x = (prefix/8)+1; x < RAS_V6LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
@@ -55,10 +55,10 @@ void ras_mkeui64addr(void *d_addr, const void *s_addr)
 	uint8_t *ud_addr = (uint8_t *)d_addr;
 
 	memcpy(d_addr, s_addr, RAS_V6LEN);
-	ud_addr[11] = 0xff;
-	ud_addr[12] = 0xfe;
+	ud_addr[RAS_V6LEN-5] = 0xff;
+	ud_addr[RAS_V6LEN-4] = 0xfe;
 	ras_amendeui64addr(d_addr, s_addr);
-	if (ud_addr[8] & (1 << 0)) ud_addr[8] ^= 1 << 0;
+	if (ud_addr[RAS_V6LEN-8] & (1 << 0)) ud_addr[RAS_V6LEN-8] ^= 1 << 0;
 }
 
 ras_yesno ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t prefix, ras_yesno want_full)
@@ -67,7 +67,7 @@ ras_yesno ras_mkrandaddr4(void *d_addr, const void *s_addr, size_t prefix, ras_y
 	size_t x;
 	uint8_t c;
 
-	if (prefix < 0 || prefix > IPV4_BITS) return NO;
+	if (prefix > IPV4_BITS) return NO;
 	memcpy(d_addr, s_addr, RAS_V4LEN);
 	if ((IPV4_BITS-prefix)%8) {
 		for (x = (prefix/8)+1; x < RAS_V4LEN; x++) ud_addr[x] = ras_prng_getrandc(want_full);
