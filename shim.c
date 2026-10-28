@@ -211,7 +211,11 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 }
 
 #ifdef USE_LINUX
+#ifdef __ANDROID__
+int sendmmsg(int sockfd, const struct mmsghdr *msgvec, unsigned int vlen, int flags)
+#else
 int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags)
+#endif
 {
 #ifndef SHARED
 	ras_init(RFN_SENDMSG, NULL);
