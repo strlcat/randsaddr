@@ -160,6 +160,10 @@ struct s_envcfg {
 	char *disfile;
 	char *dispass;
 
+	char *monfname;
+	int monfd;
+	struct stat monfst;
+
 	ras_yesno session_done6;
 	ras_yesno session_done4;
 	struct s_addr session_addr_data6;

@@ -49,9 +49,8 @@ int socket(int domain, int type, int protocol)
 {
 	int res;
 
-#ifndef SHARED
 	ras_init(RFN_SOCKET, NULL);
-#endif
+
 #ifdef USE_LIBDL
 	res = ras_libc_socket(domain, type, protocol);
 #else
@@ -72,9 +71,8 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 	struct ras_sockaddr ska;
 	in_port_t portid;
 
-#ifndef SHARED
 	ras_init(RFN_BIND, NULL);
-#endif
+
 	if (af_valid(paddr->sa_family) != YES) goto _call;
 	if (randsaddr_config->do_bind == NO) {
 		if (randsaddr_config->do_socket) return 0;
@@ -131,9 +129,8 @@ _call:	if (did_bind) {
 
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
-#ifndef SHARED
 	ras_init(RFN_CONNECT, NULL);
-#endif
+
 	if (randsaddr_config->do_connect) {
 		/* even if connecting to peer, destination addr->sa_family must match source one, right? */
 		if (af_valid(addr->sa_family)) ras_bind_random(RFN_CONNECT, sockfd, 0, NULL);
@@ -147,9 +144,8 @@ int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 
 ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 {
-#ifndef SHARED
 	ras_init(RFN_SEND, NULL);
-#endif
+
 	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_send(sockfd, buf, len, flags);
@@ -160,9 +156,8 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags)
 
 ssize_t write(int fd, const void *buf, size_t len)
 {
-#ifndef SHARED
 	ras_init(RFN_SEND, NULL);
-#endif
+
 	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, fd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_write(fd, buf, len);
@@ -173,9 +168,8 @@ ssize_t write(int fd, const void *buf, size_t len)
 
 ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
 {
-#ifndef SHARED
 	ras_init(RFN_SEND, NULL);
-#endif
+
 	if (randsaddr_config->do_send) ras_bind_random(RFN_SEND, fd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_writev(fd, iov, iovcnt);
@@ -186,9 +180,8 @@ ssize_t writev(int fd, const struct iovec *iov, int iovcnt)
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen)
 {
-#ifndef SHARED
 	ras_init(RFN_SENDTO, NULL);
-#endif
+
 	if (randsaddr_config->do_sendto) ras_bind_random(RFN_SENDTO, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
@@ -199,9 +192,8 @@ ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct 
 
 ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 {
-#ifndef SHARED
 	ras_init(RFN_SENDMSG, NULL);
-#endif
+
 	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0, NULL);
 #ifdef USE_LIBDL
 	return ras_libc_sendmsg(sockfd, msg, flags);

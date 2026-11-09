@@ -28,7 +28,7 @@
 
 #include "randsaddr.h"
 
-static struct s_envcfg randsaddr = { .do_connect = YES, .randsources[0] = "/dev/urandom", };
+static struct s_envcfg randsaddr = { .do_connect = YES, .randsources[0] = "/dev/urandom", .monfd = -1 };
 const struct s_envcfg *randsaddr_config = &randsaddr;
 
 static struct s_addrcfg *addrs6;
@@ -78,6 +78,40 @@ int ras_malloc_oom(int fail, ras_malloc_oom_caller where)
 void ras_malloc_error(ras_malloc_oom_caller where)
 {
 	ras_fatal("Out of Memory");
+}
+
+static int fdgetstr(int fd, char *out, size_t len)
+{
+	memset(out, 0, len);
+	if (read(fd, out, len) != -1) {
+		if (len > 0) out[len-1] = 0;
+		out[strcspn(out, "\r\n")] = 0;
+		return 1;
+	}
+	return 0;
+}
+
+static void reset_config(void)
+{
+	int fd = randsaddr.monfd;
+	char *nm = randsaddr.monfname;
+	struct stat st = randsaddr.monfst;
+	size_t x;
+
+	memset(&randsaddr, 0, sizeof(struct s_envcfg));
+
+	randsaddr.do_connect = YES;
+	randsaddr.randsources[0] = "/dev/urandom";
+	randsaddr.monfd = fd;
+	randsaddr.monfname = nm;
+	randsaddr.monfst = st;
+
+	naddrs4 = 0;
+	for (x = 0; x < DYN_ARRAY_SZ(addrs4); x++) pfree(addrs4[x].sadm);
+	pfree(addrs4);
+	naddrs6 = 0;
+	for (x = 0; x < DYN_ARRAY_SZ(addrs6); x++) pfree(addrs6[x].sadm);
+	pfree(addrs6);
 }
 
 static char *parse_flags(struct s_addrcfg *sap, const char *saddr)
@@ -174,13 +208,43 @@ static ras_yesno file_flag_disabled(void)
 	return NO;
 }
 
-/* the "fnt" arg is currently unused, but might come handy in future. */
 static void do_init(ras_fntyp fnt, const char *cfg)
 {
 	static char *scfg, *rsenv;
 	char *s, *d, *t, *p;
 	char *nmap, *weight, *addrop;
 	ras_atype type;
+
+	if (randsaddr_config->monfname && randsaddr_config->monfd != -1) {
+		struct stat st;
+		size_t sz;
+
+		sz = RAS_CFGSZ;
+		scfg = ras_realloc(scfg, sz);
+
+		if (fstat(randsaddr.monfd, &st) == -1)
+			/* XXX do we need to crash application because of that?! */
+			ras_fatal("cannot stat monitor file \"%s\": %s", randsaddr_config->monfname, strerror(errno));
+
+		/* if no file change, then do nothing. */
+		if (!memcmp(&st.st_mtim, &randsaddr_config->monfst.st_mtim, sizeof(struct timespec))
+		 && !memcmp(&st.st_ctim, &randsaddr_config->monfst.st_ctim, sizeof(struct timespec))) goto _done;
+
+		/* save new timestamp */
+		memcpy(&randsaddr.monfst, &st, sizeof(struct stat));
+
+		if (lseek(randsaddr_config->monfd, 0L, SEEK_SET) == -1)
+			ras_fatal("cannot seek monitor file \"%s\": %s", randsaddr_config->monfname, strerror(errno));
+
+		memset(scfg, 0, sz);
+		if (!fdgetstr(randsaddr.monfd, scfg, sz))
+			ras_fatal("cannot read monitor file \"%s\": %s", randsaddr_config->monfname, strerror(errno));
+
+		reset_config();
+
+		/* We have new config string - let's parse it! */
+		goto _fparsedone;
+	}
 
 	if (randsaddr_config->initdone) return;
 	if (randsaddr_config->disabled) return;
@@ -221,6 +285,7 @@ _done:			randsaddr.initdone = YES;
 		}
 	}
 
+_fparsedone:
 	s = d = scfg; t = NULL;
 	while ((s = strtok_r(d, " ,\n\t", &t))) {
 		if (d) d = NULL;
@@ -229,21 +294,65 @@ _done:			randsaddr.initdone = YES;
 
 		if (!strncasecmp(s, "random=", CSTR_SZ("random="))) {
 			size_t x;
+			char *arg = s+CSTR_SZ("random=");
 
+			if (ras_str_empty(arg) == YES) continue;
 			for (x = 0; randsaddr_config->randsources[x] && x < STAT_ARRAY_SZ(randsaddr_config->randsources); x++);
 			if (x >= STAT_ARRAY_SZ(randsaddr_config->randsources)) continue;
-			randsaddr.randsources[x] = s+CSTR_SZ("random=");
+			randsaddr.randsources[x] = arg;
 			continue;
 		}
 		else if (!strncasecmp(s, "maclist=", CSTR_SZ("maclist="))) {
-			read_mac_list(s+CSTR_SZ("maclist="));
+			char *arg = s+CSTR_SZ("maclist=");
+
+			if (ras_str_empty(arg) == YES) continue;
+			read_mac_list(arg); /* XXX reset maclist if file= was passed. */
 			continue;
 		}
+		else if (!strncasecmp(s, "file=", CSTR_SZ("file="))) {
+			char *path;
+			int fd;
+			size_t sz;
+
+			/* allow to retarget only at startup. */
+			if (randsaddr_config->monfname && randsaddr_config->monfd != -1) continue;
+
+			path = s+CSTR_SZ("file=");
+			if (ras_str_empty(path) == YES) continue;
+			fd = open(path, O_RDONLY);
+			if (fd == -1) ras_fatal("cannot open monitor file \"%s\": %s", path, strerror(errno));
+			randsaddr.monfd = fd;
+			if (fstat(randsaddr.monfd, &randsaddr.monfst) == -1)
+				ras_fatal("cannot stat monitor file \"%s\": %s", path, strerror(errno));
+
+			randsaddr.monfname = ras_strdup(path);
+
+			if (ras_szalloc(scfg) < RAS_CFGSZ) scfg = ras_realloc(scfg, RAS_CFGSZ);
+			sz = RAS_CFGSZ;
+			memset(scfg, 0, sz);
+			if (!fdgetstr(randsaddr.monfd, scfg, sz))
+				ras_fatal("cannot read monitor file \"%s\": %s", path, strerror(errno));
+
+			reset_config();
+
+			/* reinitialize the configuration from scratch. */
+			goto _fparsedone;
+		}
+		else if (!strcasecmp(s, "-file")) {
+			if (randsaddr_config->monfname && randsaddr_config->monfd != -1) {
+				close(randsaddr_config->monfd);
+				randsaddr.monfd = -1;
+				pfree(randsaddr.monfname);
+			}
+		}
 		else if (!strncasecmp(s, "disable=", CSTR_SZ("disable="))) {
-			p = strchr(s+CSTR_SZ("disable="), ':');
+			char *arg = s+CSTR_SZ("disable=");
+
+			if (ras_str_empty(arg) == YES) continue;
+			p = strchr(arg, ':');
 			if (!p) continue;
 			*p = 0; p++;
-			randsaddr.disfile = s+CSTR_SZ("disable=");
+			randsaddr.disfile = arg;
 			randsaddr.dispass = p;
 			continue;
 		}
