@@ -520,7 +520,7 @@ ras_stype ras_socket_type(int sockfd)
 ras_yesno ras_addr_bindable_socket(int sockfd, const struct s_addr *psa)
 {
 	size_t x;
-	ras_stype st = RST_ERROR;
+	ras_stype st;
 
 	if (psa->atype != RAT_IPV4 && psa->atype != RAT_IPV6) return NO;
 
@@ -528,6 +528,7 @@ ras_yesno ras_addr_bindable_socket(int sockfd, const struct s_addr *psa)
 		st = ras_socket_type(sockfd);
 		if (st == RST_ERROR) return NO;
 	}
+	else st = RST_ANY;
 
 	if (psa->atype == RAT_IPV6) for (x = 0; x < naddrs6; x++) {
 		if (caddrs6[x].sa.atype != RAT_IPV6) continue;
@@ -578,6 +579,7 @@ ras_yesno ras_addr_remapped_socket(int sockfd, struct s_addr *pda, const struct 
 		st = ras_socket_type(sockfd);
 		if (st == RST_ERROR) return NO;
 	}
+	else st = RST_ANY;
 
 	if (psa->atype == RAT_IPV6) for (x = 0; x < naddrs6; x++) {
 		if (caddrs6[x].sa.atype != RAT_IPV6) continue;
