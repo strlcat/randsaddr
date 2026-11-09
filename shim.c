@@ -209,22 +209,3 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags)
 	return syscall(SYS_sendmsg, sockfd, msg, flags);
 #endif
 }
-
-#ifdef USE_LINUX
-#ifdef __ANDROID__
-int sendmmsg(int sockfd, const struct mmsghdr *msgvec, unsigned int vlen, int flags)
-#else
-int sendmmsg(int sockfd, struct mmsghdr *msgvec, unsigned int vlen, int flags)
-#endif
-{
-#ifndef SHARED
-	ras_init(RFN_SENDMSG, NULL);
-#endif
-	if (randsaddr_config->do_sendmsg) ras_bind_random(RFN_SENDMSG, sockfd, 0, NULL);
-#ifdef USE_LIBDL
-	return ras_libc_sendmmsg(sockfd, msgvec, vlen, flags);
-#else
-	return syscall(SYS_sendmmsg, sockfd, msgvec, vlen, flags);
-#endif
-}
-#endif
