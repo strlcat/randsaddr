@@ -320,7 +320,7 @@ _fparsedone:
 			path = s+CSTR_SZ("file=");
 			if (ras_str_empty(path) == YES) continue;
 			fd = open(path, O_RDONLY);
-			if (fd == -1) ras_fatal("cannot open monitor file \"%s\": %s", path, strerror(errno));
+			if (fd == -1) continue;
 			randsaddr.monfd = fd;
 			if (fstat(randsaddr.monfd, &randsaddr.monfst) == -1)
 				ras_fatal("cannot stat monitor file \"%s\": %s", path, strerror(errno));
