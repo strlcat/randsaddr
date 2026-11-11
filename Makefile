@@ -3,7 +3,7 @@ HDRS = $(wildcard *.h)
 LIB_OBJS = $(filter-out rndaddr.o, $(SRCS:.c=.o))
 PROG_OBJS = rndaddr.o
 LDSO_OBJS = randsaddr.lo shim.lo prng.lo
-override CFLAGS += -Wall -fPIC
+override CFLAGS += -Wall -std=gnu99 -fPIC
 
 ifneq (,$(DEBUG))
 override CFLAGS+=-O0 -g
