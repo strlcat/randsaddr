@@ -31,14 +31,17 @@
 
 int main(int argc, char **argv)
 {
+	int c;
 	char *sarg;
 	ras_fntyp fnt;
 	ras_opts opts;
+	ras_yesno saw4, saw6;
 	struct s_addr sa;
 	char res[RAS_ADDRLEN];
-	int c;
 
 	opterr = 0;
+	saw4 = NO;
+	saw6 = NO;
 	fnt = RFN_UNKNOWN;
 	opts = ROP_NONE;
 	while ((c = getopt(argc, argv, "46uz")) != -1) {
@@ -55,6 +58,8 @@ int main(int argc, char **argv)
 _us:				puts("usage: rndaddr [-46zu] RANDSADDR_STRSPEC");
 				puts("example ipv4: rndaddr -4 172.16.0.0/12");
 				puts("example ipv6: rndaddr -6 fd89:3072:4000::/34");
+				puts("  -4: force generating IPv4 address");
+				puts("  -6: force generating IPv6 address");
 				puts("  -z: ensure there are no zero nibbles");
 				puts("  -u: (ipv6) generate and embed EUI64");
 				puts("See randsaddr.so project's README.md");
@@ -76,12 +81,32 @@ _us:				puts("usage: rndaddr [-46zu] RANDSADDR_STRSPEC");
 
 			sarg = NULL;
 			for (x = 0; argv[optind+x]; x++) {
+				ras_atype at = ras_addr_type(argv[optind+x]);
+				if (fnt == RFN_UNKNOWN) {
+					switch (at) {
+						case RAT_IPV4: saw4 = YES; break;
+						case RAT_IPV6: saw6 = YES; break;
+						default: /* leave fnt == RFN_UNKNOWN. */ break;
+					}
+				}
+
 				sarg = ras_realloc(sarg, (sarg ? strlen(sarg) : 0) + strlen(argv[optind+x]) + 1 + CSTR_SZ(","));
 				sz = ras_szalloc(sarg);
 				if (x > 0) if (ras_strlcat(sarg, ",", sz) >= sz) abort();
 				if (ras_strlcat(sarg, argv[optind+x], sz) >= sz) abort();
 			}
 		}
+	}
+
+	if (saw4 == YES && saw6 == NO) fnt = RFN_RNDADDR4;
+	else if (saw4 == NO && saw6 == YES) fnt = RFN_RNDADDR6;
+	else if (saw4 == YES && saw6 == YES) {
+		size_t x;
+
+		ras_prng_init();
+		x = ras_prng_index(0, 1);
+		if (x == 0) fnt = RFN_RNDADDR4;
+		else if (x == 1) fnt = RFN_RNDADDR6;
 	}
 
 	if (fnt == RFN_UNKNOWN) {
