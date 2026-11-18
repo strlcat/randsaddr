@@ -68,7 +68,21 @@ _us:				puts("usage: rndaddr [-46zu] RANDSADDR_STRSPEC");
 		else if (fnt == RFN_RNDADDR6) sarg = "::/0";
 		else goto _us;
 	}
-	else sarg = argv[optind];
+	else {
+		if (!argv[optind+1]) sarg = argv[optind];
+		else {
+			int x;
+			size_t sz;
+
+			sarg = NULL;
+			for (x = 0; argv[optind+x]; x++) {
+				sarg = ras_realloc(sarg, (sarg ? strlen(sarg) : 0) + strlen(argv[optind+x]) + 1 + CSTR_SZ(","));
+				sz = ras_szalloc(sarg);
+				if (x > 0) (void)ras_strlcat(sarg, ",", sz);
+				(void)ras_strlcat(sarg, argv[optind+x], sz);
+			}
+		}
+	}
 
 	if (fnt == RFN_UNKNOWN) {
 		/* naive try in case if only one range was specified */

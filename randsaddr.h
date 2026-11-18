@@ -211,6 +211,7 @@ static inline ras_yesno ras_str_empty(const char *str)
 	return NO;
 }
 extern size_t ras_strlcpy(char *, const char *, size_t);
+extern size_t ras_strlcat(char *, const char *, size_t);
 extern size_t ras_strlxstr(char *, size_t, const char *, const char *);
 extern size_t ras_strxstr(char *, const char *, const char *);
 
