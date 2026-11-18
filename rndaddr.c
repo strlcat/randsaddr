@@ -78,8 +78,8 @@ _us:				puts("usage: rndaddr [-46zu] RANDSADDR_STRSPEC");
 			for (x = 0; argv[optind+x]; x++) {
 				sarg = ras_realloc(sarg, (sarg ? strlen(sarg) : 0) + strlen(argv[optind+x]) + 1 + CSTR_SZ(","));
 				sz = ras_szalloc(sarg);
-				if (x > 0) (void)ras_strlcat(sarg, ",", sz);
-				(void)ras_strlcat(sarg, argv[optind+x], sz);
+				if (x > 0) if (ras_strlcat(sarg, ",", sz) >= sz) abort();
+				if (ras_strlcat(sarg, argv[optind+x], sz) >= sz) abort();
 			}
 		}
 	}
