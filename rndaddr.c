@@ -81,8 +81,8 @@ _us:				puts("usage: rndaddr [-46zu] RANDSADDR_STRSPEC");
 
 			sarg = NULL;
 			for (x = 0; argv[optind+x]; x++) {
-				ras_atype at = ras_addr_type(argv[optind+x]);
 				if (fnt == RFN_UNKNOWN) {
+					ras_atype at = ras_addr_type(argv[optind+x]);
 					switch (at) {
 						case RAT_IPV4: saw4 = YES; break;
 						case RAT_IPV6: saw6 = YES; break;
